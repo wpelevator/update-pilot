@@ -209,6 +209,16 @@ class Plugin {
 		$response = wp_remote_post( $update_url, $payload );
 
 		if ( is_wp_error( $response ) ) {
+			$response->add(
+				'update_pilot__update_error',
+				sprintf(
+					/* translators: 1: Plugin file, 2: Error message */
+					__( 'Update for %s failed: %s' ),
+					$plugin_file,
+					$response->get_error_message()
+				)
+			);
+
 			return $response;
 		}
 
