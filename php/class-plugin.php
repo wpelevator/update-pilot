@@ -213,7 +213,7 @@ class Plugin {
 				'update_pilot__update_error',
 				sprintf(
 					/* translators: 1: Plugin file, 2: Error message */
-					__( 'Update for %s failed: %s' ),
+					__( 'Update for %1$s failed: %2$s' ),
 					$plugin_file,
 					$response->get_error_message()
 				)
