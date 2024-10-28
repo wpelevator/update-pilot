@@ -170,11 +170,11 @@ class Plugin {
 
 		if ( is_wp_error( $update ) ) {
 			$this->update_errors[] = $update;
-
-			return false;
+		} elseif ( is_object( $update ) ) {
+			return $update;
 		}
 
-		return $update;
+		return false;
 	}
 
 	private function get_plugin_update_url( $plugin_data ) {
