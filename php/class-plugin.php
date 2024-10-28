@@ -228,13 +228,6 @@ class Plugin {
 			return (object) $updates[ $plugin_file ];
 		}
 
-		return new WP_Error(
-			'update_pilot__missing_update',
-			sprintf(
-				/* translators: %s: Plugin file */
-				__( 'No update information found for %s', 'update-pilot' ),
-				$plugin_file
-			),
-		);
+		return false;
 	}
 }
