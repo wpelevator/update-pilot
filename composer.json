@@ -1,0 +1,14 @@
+{
+	"name": "wpelevator/update-pilot",
+	"description": "Update Pilot for WordPress",
+	"version": "0.1.0",
+	"type": "wordpress-plugin",
+	"config": {
+		"autoloader-suffix": "Update_Pilot_Plugin"
+	},
+	"autoload": {
+		"classmap": [
+			"php/"
+		]
+	}
+}
