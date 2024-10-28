@@ -1,0 +1,10 @@
+{
+	"private": true,
+	"devDependencies": {
+		"npm-run-all2": "^6.2.3"
+	},
+	"scripts": {
+		"build": "npm-run-all build:*",
+		"build:php": "composer install --no-dev --optimize-autoloader"
+	}
+}
