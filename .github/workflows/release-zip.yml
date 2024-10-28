@@ -1,0 +1,19 @@
+name: Release ZIP
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    name: Release ZIP
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create plugin ZIP
+        run: git archive --prefix=update-pilot/ --output="update-pilot-${{ github.ref_name }}.zip"
+
+      - name: Upload to tag
+        run: gh release upload --clobber "${{ github.ref_name }}" "update-pilot-${{ github.ref_name }}.zip"
