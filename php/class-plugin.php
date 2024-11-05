@@ -36,6 +36,11 @@ class Plugin {
 	}
 
 	public function register_hostnames( $updates ) {
+		// This isn't available during wp_admin_bar_updates_menu() call to this meta.
+		if ( ! function_exists( 'get_plugins' ) ) {
+			return $updates;
+		}
+
 		$all_plugins = get_plugins();
 
 		foreach ( $all_plugins as $plugin_data ) {
