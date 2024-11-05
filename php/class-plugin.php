@@ -177,16 +177,6 @@ class Plugin {
 		return false;
 	}
 
-	private function get_plugin_update_url( $plugin_data ) {
-		$plugin_update_url = $plugin_data['UpdateURI'];
-
-		if ( false === strpos( $plugin_update_url, '/update-pilot/' ) ) {
-			return false;
-		}
-
-		return $plugin_update_url;
-	}
-
 	private function get_update_for_version( $plugin_file, $plugin_data, $locales ) {
 		$plugins = [
 			$plugin_file => $plugin_data,
