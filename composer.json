@@ -14,5 +14,8 @@
 		"branch-alias": {
 			"dev-main": "0.1.x-dev"
 		}
+	},
+	"require": {
+		"composer/installers": "~1.0"
 	}
 }
