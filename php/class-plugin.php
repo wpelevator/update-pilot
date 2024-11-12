@@ -69,10 +69,13 @@ class Plugin {
 	public function filter_plugins_api( $response, $action, $args ) {
 		if ( empty( $response ) && 'plugin_information' === $action ) {
 			$plugin_file = $this->get_plugin_file_by_slug( $args->slug );
-			$plugin_data = $this->get_plugin_data( $plugin_file );
 
-			if ( ! empty( $plugin_data['UpdateURI'] ) && $this->is_update_pilot_url( $plugin_data['UpdateURI'] ) ) {
-				return $this->get_plugin_information( $plugin_file, $args );
+			if ( $plugin_file ) { // Plugin might not be local, yet.
+				$plugin_data = $this->get_plugin_data( $plugin_file );
+
+				if ( ! empty( $plugin_data['UpdateURI'] ) && $this->is_update_pilot_url( $plugin_data['UpdateURI'] ) ) {
+					return $this->get_plugin_information( $plugin_file, $args );
+				}
 			}
 		}
 
