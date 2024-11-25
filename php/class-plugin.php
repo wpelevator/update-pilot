@@ -31,8 +31,11 @@ class Plugin {
 			add_action( 'admin_notices', [ $this, 'show_update_errors' ] );
 			add_action( 'network_admin_notices', [ $this, 'show_update_errors' ] );
 
-			add_action( 'network_admin_menu', [ $this, 'register_settings_pages' ] );
+			if ( ! is_multisite() ) { // Only show this on single sites.
+				add_action( 'admin_menu', [ $this, 'register_settings_pages' ] );
+			}
 
+			add_action( 'network_admin_menu', [ $this, 'register_settings_pages' ] ); // When on multisites.
 			add_action( 'network_admin_edit_update', [ $this, 'action_update_network_settings' ] );
 		}
 
