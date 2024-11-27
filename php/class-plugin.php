@@ -40,8 +40,10 @@ class Plugin {
 		}
 
 		if ( is_admin() && $this->current_user_can_manage_updates() ) {
-			add_filter( 'plugin_action_links', [ $this, 'filter_plugin_action_links' ], 10, 3 );
-			add_filter( 'network_admin_plugin_action_links', [ $this, 'filter_plugin_action_links' ], 10, 3 );
+			$plugin_file = plugin_basename( $this->plugin_file );
+
+			add_filter( 'plugin_action_links_' . $plugin_file, [ $this, 'filter_plugin_action_links' ], 10, 3 );
+			add_filter( 'network_admin_plugin_action_links_' . $plugin_file, [ $this, 'filter_plugin_action_links' ], 10, 3 );
 		}
 	}
 
@@ -383,7 +385,7 @@ class Plugin {
 	}
 
 	public function filter_plugin_action_links( $actions, $plugin_file, $plugin_data ) {
-		if ( is_plugin_active( $plugin_file ) && ! empty( $plugin_data['UpdateURI'] ) && $this->is_update_pilot_url( $plugin_data['UpdateURI'] ) ) {
+		if ( ! empty( $plugin_data['UpdateURI'] ) && $this->is_update_pilot_url( $plugin_data['UpdateURI'] ) ) {
 			$actions['update-pilot-configure'] = sprintf(
 				'<a href="%s">%s</a>',
 				esc_url( $this->get_package_update_settings_url( $plugin_data['UpdateURI'] ) ),
