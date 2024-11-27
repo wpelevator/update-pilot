@@ -2,13 +2,13 @@
 
 namespace WPElevator\Update_Pilot\Settings;
 
+use WP_Error;
+
 abstract class Field {
 
 	protected Store $store;
 
 	protected array $settings;
-
-	protected array $errors = [];
 
 	public function __construct( Store $store, array $settings = [] ) {
 		$this->store = $store;
@@ -48,15 +48,28 @@ abstract class Field {
 	}
 
 	public function has_errors() {
-		return ! empty( $this->errors );
+		$errors = get_settings_errors( $this->id(), false );
+
+		return ! empty( $errors );
 	}
 
-	public function add_error( \WP_Error $error ) {
-		$this->errors[] = $error;
+	public function add_error( \WP_Error $error, string $type = 'error' ) {
+		add_settings_error( $this->id(), $error->get_error_code(), $error->get_error_message(), $type );
 	}
 
 	public function get_errors(): array {
-		return $this->errors;
+		return array_map(
+			function ( $error ) {
+				return new WP_Error(
+					$error['code'],
+					$error['message'],
+					[
+						'type' => $error['type'],
+					]
+				);
+			},
+			get_settings_errors( $this->id(), false )
+		);
 	}
 
 	public function get() {

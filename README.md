@@ -10,7 +10,7 @@ Please note that on WordPress multisite the code using these hooks should be run
 
 Filters:
 
-- `update_pilot__update_uri_key` returns `string` product key to be used for HTTP Basic auth when checking the second `string` argument `UpdateURI` for updates.
+- `update_pilot__plugin_update_key__${plugin_file}` returns `string` product key to be used for HTTP Basic auth when checking updates for `${plugin_file}`.
 
 - `update_pilot__current_user_can_manage_updates` returns `bool` if the current user can configure the update pilot settings and see any error notifications.
 

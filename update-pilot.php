@@ -4,7 +4,7 @@
  * Description: Get updates from third-party plugin and theme vendors.
  * Author: WP Elevator
  * Author URI: https://wpelevator.com
- * Version: 0.2.0
+ * Version: 0.3.0
  * Plugin URI: https://wpelevator.com/plugins/update-pilot
  * Update URI: https://updates.wpelevator.com/wp-json/update-pilot/v1/plugins
  * Requires at least: 5.9
@@ -27,3 +27,6 @@ if ( ! class_exists( Plugin::class ) && file_exists( __DIR__ . '/vendor/autoload
 $plugin = new Plugin( __FILE__ );
 
 add_action( 'plugins_loaded', [ $plugin, 'init' ] );
+
+register_activation_hook( __FILE__, [ Plugin::class, 'activate' ] );
+register_uninstall_hook( __FILE__, [ Plugin::class, 'uninstall' ] );

@@ -3,12 +3,16 @@
 namespace WPElevator\Update_Pilot;
 
 use WPElevator\Update_Pilot\Settings\Field;
-use WPElevator\Update_Pilot\Settings\Field_Text;
 use WPElevator\Update_Pilot\Settings\Store_Site_Option;
+use WPElevator\Update_Pilot\Settings\Update_Key;
 
 class Plugin {
 
-	private const TRANSIENT_NAME_UPDATE_ERRORS = 'update-pilot--update-errors';
+	private const TRANSIENT_NAME_ACTIVATED = 'update_pilot__activated';
+
+	private const TRANSIENT_NAME_UPDATE_ERRORS = 'update_pilot__update_errors';
+
+	private const OPTION_PREFIX = 'update_pilot__';
 
 	private const SETTINGS_SLUG = 'update-pilot';
 
@@ -18,6 +22,10 @@ class Plugin {
 
 	public function __construct( $plugin_file ) {
 		$this->plugin_file = $plugin_file;
+	}
+
+	private function get_plugin_basename(): string {
+		return plugin_basename( $this->plugin_file );
 	}
 
 	public function init() {
@@ -31,6 +39,9 @@ class Plugin {
 			add_action( 'admin_notices', [ $this, 'show_update_errors' ] );
 			add_action( 'network_admin_notices', [ $this, 'show_update_errors' ] );
 
+			add_action( 'admin_notices', [ $this, 'action_activate_notice' ] );
+			add_action( 'network_admin_notices', [ $this, 'action_activate_notice' ] );
+
 			if ( ! is_multisite() ) { // Only show this on single sites.
 				add_action( 'admin_menu', [ $this, 'register_settings_pages' ] );
 			}
@@ -40,11 +51,68 @@ class Plugin {
 		}
 
 		if ( is_admin() && $this->current_user_can_manage_updates() ) {
-			$plugin_file = plugin_basename( $this->plugin_file );
-
-			add_filter( 'plugin_action_links_' . $plugin_file, [ $this, 'filter_plugin_action_links' ], 10, 3 );
-			add_filter( 'network_admin_plugin_action_links_' . $plugin_file, [ $this, 'filter_plugin_action_links' ], 10, 3 );
+			add_filter( 'plugin_action_links_' . $this->get_plugin_basename(), [ $this, 'filter_plugin_action_links' ], 10, 3 );
+			add_filter( 'network_admin_plugin_action_links_' . $this->get_plugin_basename(), [ $this, 'filter_plugin_action_links' ], 10, 3 );
 		}
+	}
+
+	public static function uninstall() {
+		global $wpdb;
+
+		// Delete all single-site options.
+		$options_to_delete = array_filter(
+			array_keys( wp_load_alloptions() ),
+			fn( $option_name ) => 0 === strpos( $option_name, self::OPTION_PREFIX )
+		);
+
+		foreach ( $options_to_delete as $option_name ) {
+			delete_option( $option_name );
+		}
+
+		if ( is_multisite() ) {
+			$site_option_keys = $wpdb->get_col( $wpdb->prepare( "SELECT meta_key FROM $wpdb->sitemeta WHERE site_id = %d", get_current_network_id() ) );
+
+			if ( is_array( $site_option_keys ) ) {
+				$site_option_keys = array_filter(
+					$site_option_keys,
+					fn( $option_name ) => 0 === strpos( $option_name, self::OPTION_PREFIX )
+				);
+
+				foreach ( $site_option_keys as $option_name ) {
+					delete_site_option( $option_name );
+				}
+			}
+		}
+	}
+
+	public static function activate() {
+		set_transient( self::TRANSIENT_NAME_ACTIVATED, true, MINUTE_IN_SECONDS );
+	}
+
+	public function action_activate_notice() {
+		if ( ! $this->current_user_can_manage_updates() ) {
+			return;
+		}
+
+		$is_just_activated = (bool) get_transient( self::TRANSIENT_NAME_ACTIVATED );
+
+		if ( ! $is_just_activated ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-success">
+				<p>%s %s</p>
+			</div>',
+			__( 'Visit the Update Pilot settings to configure the updates!', 'update-pilot' ),
+			sprintf(
+				'<a href="%s" class="button">%s</a>',
+				esc_url( $this->get_settings_url() ),
+				esc_html__( 'Configure Updates', 'update-pilot' )
+			)
+		);
+
+		delete_transient( self::TRANSIENT_NAME_ACTIVATED );
 	}
 
 	private function get_manage_updates_cap() {
@@ -83,7 +151,7 @@ class Plugin {
 		return str_replace( '.php', '', $plugin_file ); // These are top-level plugins.
 	}
 
-	public function get_plugins() {
+	public function get_plugins(): array {
 		if ( ! function_exists( 'get_plugins' ) ) {
 			return [];
 		}
@@ -94,7 +162,7 @@ class Plugin {
 		);
 	}
 
-	public function get_themes() {
+	public function get_themes(): array {
 		if ( ! function_exists( 'wp_get_themes' ) ) {
 			return [];
 		}
@@ -189,8 +257,8 @@ class Plugin {
 		return null;
 	}
 
-	private function get_update_request_headers( $update_uri ) {
-		$update_key = $this->get_key_for_update_uri( $update_uri );
+	private function get_update_request_headers( string $plugin_file ): array {
+		$update_key = $this->get_update_key_for_plugin( $plugin_file );
 
 		if ( $update_key ) {
 			$basic_auth_pair = sprintf(
@@ -231,7 +299,7 @@ class Plugin {
 		$request = wp_remote_get(
 			$info_url,
 			[
-				'headers' => $this->get_update_request_headers( $plugin_data['UpdateURI'] ),
+				'headers' => $this->get_update_request_headers( $plugin_file ),
 				'timeout' => 15,
 			]
 		);
@@ -351,7 +419,7 @@ class Plugin {
 		// Allow inactive plugins to load Update Pilot customizations even when not running.
 		$meta_include_file = $this->get_plugin_meta_file( $plugin_file );
 
-		if ( is_readable( $meta_include_file ) ) {
+		if ( $meta_include_file && is_readable( $meta_include_file ) ) {
 			@include_once $$meta_include_file; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, we must prevent any accidental errors.
 		}
 
@@ -360,7 +428,7 @@ class Plugin {
 		];
 
 		$payload = [
-			'headers' => $this->get_update_request_headers( $plugin_data['UpdateURI'] ),
+			'headers' => $this->get_update_request_headers( $plugin_file ),
 			'body' => [
 				'plugins' => wp_json_encode( $plugins ),
 				'locale' => wp_json_encode( $locales ),
@@ -433,54 +501,24 @@ class Plugin {
 	}
 
 	private function option_name( string $name ) {
-		return sprintf( 'update_pilot__%s', $name );
+		return sprintf( '%s%s', self::OPTION_PREFIX, sanitize_key( $name ) );
 	}
 
-	private function get_packages_by_host() {
-		$packages_by_host = [];
+	private function get_update_key_option_for_plugin( string $plugin_file ) {
+		$replace = [
+			'/' => '--',
+			'.' => '-',
+		];
 
-		foreach ( $this->get_plugins() as $plugin_file => $plugin ) {
-			$update_uri_host = wp_parse_url( $plugin['UpdateURI'], PHP_URL_HOST );
+		$key = str_replace( array_keys( $replace ), $replace, $plugin_file );
 
-			if ( ! isset( $packages_by_host[ $update_uri_host ] ) ) {
-				$packages_by_host[ $update_uri_host ] = [];
-			}
-
-			$packages_by_host[ $update_uri_host ][ $plugin_file ] = [
-				'Name' => $plugin['Name'],
-				'PluginURI' => $plugin['PluginURI'],
-				'UpdateURI' => $plugin['UpdateURI'],
-			];
-		}
-
-		foreach ( $this->get_themes() as $theme ) {
-			$update_uri_host = wp_parse_url( $theme->get( 'UpdateURI' ), PHP_URL_HOST );
-
-			if ( ! isset( $packages_by_host[ $update_uri_host ] ) ) {
-				$packages_by_host[ $update_uri_host ] = [];
-			}
-
-			$packages_by_host[ $update_uri_host ][ $theme->get_stylesheet() ] = [
-				'Name' => $theme->get( 'Name' ),
-				'ThemeURI' => $theme->get( 'ThemeURI' ),
-				'UpdateURI' => $theme->get( 'UpdateURI' ),
-			];
-		}
-
-		return $packages_by_host;
+		return new Store_Site_Option( $this->option_name( sprintf( 'update_key_plugin__%s', $key ) ) );
 	}
 
-	private function get_key_for_uri_host_option( $update_uri_host ) {
-		return new Store_Site_Option( $this->option_name( sprintf( 'update_key_host_%s', $update_uri_host ) ) );
-	}
-
-	public function get_key_for_update_uri( $update_uri ) {
-		$update_uri_host = wp_parse_url( $update_uri, PHP_URL_HOST );
-
+	private function get_update_key_for_plugin( string $plugin_file ) {
 		return apply_filters(
-			'update_pilot__update_uri_key',
-			$this->get_key_for_uri_host_option( $update_uri_host )->get(),
-			$update_uri
+			'update_pilot__plugin_update_key__' . $plugin_file,
+			$this->get_update_key_option_for_plugin( $plugin_file )->get()
 		);
 	}
 
@@ -507,86 +545,80 @@ class Plugin {
 			);
 		}
 
-		foreach ( $this->get_packages_by_host() as $update_uri_host => $packages ) {
-			$section_name = sprintf( 'updates-host-%s', $update_uri_host );
+		foreach ( $this->get_plugins() as $plugin_file => $plugin ) {
+			$section_key = sprintf( 'update-pilot-plugin-%s', $plugin_file );
 
 			add_settings_section(
-				$section_name,
-				sprintf(
-					/* translators: %s: Update URI hostname. */
-					__( 'Updates from %s', 'update-pilot' ),
-					$update_uri_host
-				),
-				function () use ( $packages ) {
-					$package_links = [];
+				$section_key,
+				$plugin['Name'],
+				function () use ( $plugin ) {
+					$plugin_name = esc_html( $plugin['Name'] );
 
-					$plugin_links = array_map(
-						function ( $plugin ) {
-							if ( $plugin['PluginURI'] ) {
-								return sprintf(
-									'<a href="%s">%s</a>',
-									esc_url( $plugin['PluginURI'] ),
-									esc_html( $plugin['Name'] )
-								);
-							}
-
-							return $plugin['Name'];
-						},
-						array_filter( $packages, fn( $package ) => isset( $package['PluginURI'] ) )
-					);
-
-					if ( $plugin_links ) {
-						$package_links[] = sprintf(
-							/* translators: %s: List of plugin names as links. */
-							_n( 'plugin %s', 'plugins %s', count( $plugin_links ), 'update-pilot' ),
-							implode( ', ', $plugin_links )
+					if ( ! empty( $plugin['PluginURI'] ) ) {
+						$plugin_name = sprintf(
+							'<a href="%s">%s</a>',
+							esc_url( $plugin['PluginURI'] ),
+							esc_html( $plugin_name )
 						);
 					}
 
-					$theme_links = array_map(
-						function ( $theme ) {
-							if ( $theme['ThemeURI'] ) {
-								return sprintf(
-									'<a href="%s">%s</a>',
-									esc_url( $theme['ThemeURI'] ),
-									esc_html( $theme['Name'] )
-								);
-							}
+					if ( ! empty( $plugin['Author'] ) ) {
+						$author = esc_html( $plugin['Author'] );
 
-							return $theme['Name'];
-						},
-						array_filter( $packages, fn( $package ) => isset( $package['ThemeURI'] ) )
-					);
+						if ( ! empty( $plugin['AuthorURI'] ) ) {
+							$author = sprintf(
+								'<a href="%s">%s</a>',
+								esc_url( $plugin['AuthorURI'] ),
+								esc_html( $plugin['Author'] )
+							);
+						}
+					}
 
-					if ( $theme_links ) {
-						$package_links[] = sprintf(
-							/* translators: %s: List of theme names as links. */
-							_n( 'theme %s', 'themes %s', count( $theme_links ), 'update-pilot' ),
-							implode( ', ', $theme_links )
+					$parts = [
+						sprintf(
+							/* translators: %s: Plugin name */
+							__( 'Configure updates for the %s plugin', 'update-pilot' ),
+							$plugin_name
+						),
+					];
+
+					if ( isset( $author ) ) {
+						$parts[] = sprintf(
+							/* translators: %s: Plugin author name */
+							__( 'from %s', 'update-pilot' ),
+							$author
 						);
 					}
 
 					printf(
-						'<p>%s</p>',
-						sprintf(
-							/* translators: %s: List of plugin and theme names as links. */
-							__( 'Configure update settings for the following %s.', 'update-pilot' ),
-							implode( ' and ', $package_links )
-						)
+						'<p>%s:</p>',
+						wp_kses_post( implode( ' ', $parts ) )
 					);
 				},
 				self::SETTINGS_SLUG
 			);
 
-			$plugin_field = new Field_Text(
-				$this->get_key_for_uri_host_option( $update_uri_host ),
+			$plugin_field = new Update_Key(
+				$this->get_update_key_option_for_plugin( $plugin_file ),
 				[
 					'title' => __( 'Update Key', 'update-pilot' ),
-					'help' => __( 'Specify the update key, if required.', 'update-pilot' ),
+					'help' => __( 'Specify the update key only if required for this plugin.', 'update-pilot' ),
 				]
 			);
 
-			$this->add_settings_field( $plugin_field, $section_name );
+			$plugin_field->set_setting(
+				'test_key_callback',
+				function ( $key ) use ( $plugin_file, $plugin ) {
+					add_filter(
+						'update_pilot__plugin_update_key__' . $plugin_file,
+						fn() => $key,
+					);
+
+					return $this->get_update_for_version( $plugin_file, $plugin, [] );
+				}
+			);
+
+			$this->add_settings_field( $plugin_field, $section_key );
 		}
 	}
 
@@ -601,13 +633,19 @@ class Plugin {
 			$field->id(),
 			$field->title(),
 			function () use ( $field ) {
-				if ( $field->has_errors() ) {
-					foreach ( $field->get_errors() as $error ) {
-						printf(
-							'<div class="notice notice-warning inline"><p>%s</p></div>',
-							esc_html( $error->get_error_message() )
-						);
+				foreach ( $field->get_errors() as $error ) {
+					$error_type = 'notice';
+					$error_data = $error->get_error_data();
+
+					if ( isset( $error_data['type'] ) ) {
+						$error_type = $error_data['type'];
 					}
+
+					printf(
+						'<div class="notice notice-%s inline"><p>%s</p></div>',
+						esc_attr( sanitize_key( $error_type ) ),
+						esc_html( $error->get_error_message() )
+					);
 				}
 
 				echo $field->render();
@@ -627,6 +665,8 @@ class Plugin {
 			<a href="https://wpelevator.com/plugins/update-pilot/docs" target="_blank" class="page-title-action">Documentation</a>
 			<form method="post" action="<?php echo esc_attr( $action ); ?>">
 				<?php
+					$this->populate_options_page_errors( self::SETTINGS_SLUG );
+
 					settings_fields( self::SETTINGS_SLUG );
 					do_settings_sections( self::SETTINGS_SLUG );
 					submit_button();
@@ -636,6 +676,31 @@ class Plugin {
 		<?php
 	}
 
+	private function populate_options_page_errors( string $option_page ) {
+		$key = $this->get_option_page_error_key( $option_page );
+
+		$errors = get_transient( $key );
+
+		if ( is_array( $errors ) ) {
+			foreach ( $errors as $error ) {
+				add_settings_error(
+					$error['setting'],
+					$error['code'],
+					$error['message'],
+					$error['type']
+				);
+			}
+		}
+	}
+
+	private function persist_options_page_errors( string $option_page, array $errors ) {
+		set_transient( $this->get_option_page_error_key( $option_page ), $errors, 10 );
+	}
+
+	private function get_option_page_error_key( string $option_page ) {
+		return sprintf( '%s_errors', $option_page );
+	}
+
 	/**
 	 * Replicate what wp-admin/options.php does for all registered settings
 	 * but for multisite network settings.
@@ -643,31 +708,33 @@ class Plugin {
 	public function action_update_network_settings() {
 		$option_page = ! empty( $_REQUEST['option_page'] ) ? sanitize_text_field( $_REQUEST['option_page'] ) : null;
 
-		if ( $option_page ) {
-			check_admin_referer( $option_page . '-options' );
+		if ( ! $option_page ) {
+			return;
+		}
 
-			$allowed_options = apply_filters( 'allowed_options', [] );
+		check_admin_referer( $option_page . '-options' );
 
-			if ( ! empty( $allowed_options[ $option_page ] ) ) {
-				foreach ( $allowed_options[ $option_page ] as $option_name ) {
-					if ( isset( $_POST[ $option_name ] ) ) {
-						$value = $_POST[ $option_name ];
+		$allowed_options = apply_filters( 'allowed_options', [] );
 
-						if ( ! is_array( $value ) ) {
-							$value = trim( $value );
-						}
+		if ( ! empty( $allowed_options[ $option_page ] ) ) {
+			foreach ( $allowed_options[ $option_page ] as $option_name ) {
+				if ( isset( $_POST[ $option_name ] ) ) {
+					$value = $_POST[ $option_name ];
 
-						update_site_option( $option_name, wp_unslash( $value ) );
-					} else {
-						delete_site_option( $option_name );
+					if ( ! is_array( $value ) ) {
+						$value = trim( $value );
 					}
+
+					update_site_option( $option_name, wp_unslash( $value ) );
+				} else {
+					delete_site_option( $option_name );
 				}
-
-				set_transient( 'settings_errors', get_settings_errors(), 10 ); // Persist any errors.
-
-				wp_redirect( add_query_arg( 'updated', 'true', wp_get_referer() ) );
-				die;
 			}
+
+			$this->persist_options_page_errors( $option_page, get_settings_errors() );
+
+			wp_redirect( add_query_arg( 'updated', 'true', wp_get_referer() ) );
+			die;
 		}
 	}
 }
