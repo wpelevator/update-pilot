@@ -318,7 +318,43 @@ class Plugin {
 		return false;
 	}
 
+	private function get_plugin_meta_file( $plugin_file ): ?string {
+		// We can't include it for ourselves.
+		if ( false !== strpos( $this->plugin_file, $plugin_file ) ) {
+			return null;
+		}
+
+		$meta_file = sprintf( '%s/update-pilot.php', dirname( $plugin_file ) );
+
+		$lookup_files = array_map(
+			function ( $dir ) use ( $meta_file ) {
+				$file = sprintf( '%s/%s', rtrim( $dir, '\\/' ), $meta_file );
+
+				return is_readable( $file ) ? $file : null;
+			},
+			[
+				WP_PLUGIN_DIR,
+				WPMU_PLUGIN_DIR,
+			]
+		);
+
+		$lookup_files = array_filter( $lookup_files ); // Remove no-existing files.
+
+		if ( ! empty( $lookup_files ) ) {
+			return array_pop( $lookup_files ); // Should be only one match.
+		}
+
+		return null;
+	}
+
 	private function get_update_for_version( $plugin_file, $plugin_data, $locales ) {
+		// Allow inactive plugins to load Update Pilot customizations even when not running.
+		$meta_include_file = $this->get_plugin_meta_file( $plugin_file );
+
+		if ( is_readable( $meta_include_file ) ) {
+			@include_once $$meta_include_file; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, we must prevent any accidental errors.
+		}
+
 		$plugins = [
 			$plugin_file => $plugin_data,
 		];
