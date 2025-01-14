@@ -4,36 +4,36 @@ namespace WPElevator\Update_Pilot\Settings;
 
 use WP_Error;
 
-class Update_Key extends Field {
+class Vendor_Signing_Key extends Field {
 
 	public function sanitize( $value ): ?string {
 		if ( is_string( $value ) ) {
 			return sanitize_text_field( $value );
 		}
 
-		$update_key = null;
+		$public_key = null;
 
 		if ( isset( $value['key'] ) ) {
 			$key = trim( $value['key'] );
 
 			if ( '' !== $key ) {
-				$update_key = sanitize_text_field( $key );
+				$public_key = sanitize_text_field( $key );
 			}
 		}
 
-		if ( isset( $value['test'] ) && ! empty( $update_key ) ) {
-			$test_callback = $this->setting( 'test_key_callback' );
+		if ( isset( $value['test'] ) && ! empty( $public_key ) ) {
+			$test_callback = $this->setting( 'test_vendor_signing_key_callback' );
 
 			if ( is_callable( $test_callback ) ) {
-				$update = call_user_func( $test_callback, $update_key );
+				$update = call_user_func( $test_callback, $public_key );
 
 				if ( is_wp_error( $update ) ) {
 					$this->add_error(
 						new WP_Error(
-							'update-pilot-test',
+							'update-pilot-vendor-public-key',
 							sprintf(
 								/* translators: %s: update test error message */
-								__( 'Update test failed: %s', 'update-pilot' ),
+								__( 'Failed to check for an update using the provided signing key: %s', 'update-pilot' ),
 								$update->get_error_message()
 							)
 						)
@@ -41,8 +41,8 @@ class Update_Key extends Field {
 				} else {
 					$this->add_error(
 						new WP_Error(
-							'update-pilot-test',
-							__( 'Update test was successful!', 'update-pilot' )
+							'update-pilot-vendor-public-key',
+							__( 'The signing key is valid!', 'update-pilot' )
 						),
 						'success'
 					);
@@ -50,7 +50,7 @@ class Update_Key extends Field {
 			}
 		}
 
-		return $update_key;
+		return $public_key;
 	}
 
 	public function render(): string {

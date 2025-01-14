@@ -5,6 +5,7 @@ namespace WPElevator\Update_Pilot;
 use WPElevator\Update_Pilot\Settings\Field;
 use WPElevator\Update_Pilot\Settings\Store_Site_Option;
 use WPElevator\Update_Pilot\Settings\Update_Key;
+use WPElevator\Update_Pilot\Settings\Vendor_Signing_Key;
 
 class Plugin {
 
@@ -19,6 +20,8 @@ class Plugin {
 	private string $plugin_file;
 
 	private array $update_errors = [];
+
+	private array $vendor_hosts_with_signing = [];
 
 	public function __construct( $plugin_file ) {
 		$this->plugin_file = $plugin_file;
@@ -35,6 +38,14 @@ class Plugin {
 			add_filter( 'site_transient_update_plugins', [ $this, 'register_hostnames' ] );
 
 			add_filter( 'plugins_api', [ $this, 'filter_plugins_api' ], 10, 3 );
+
+			// Request package signature verification, if vendor signing key is specified.
+			add_filter( 'upgrader_pre_download', [ $this, 'filter_upgrader_pre_download' ], 10, 4 );
+
+			// Ensure that package signature verification is never skipped.
+			add_filter( 'wp_signature_hosts', [ $this, 'filter_enable_signature_hosts' ] );
+			add_filter( 'wp_signature_softfail', [ $this, 'filter_disable_signature_softfail' ], 10, 2 );
+			add_filter( 'wp_trusted_keys', [ $this, 'filter_extend_trusted_keys' ] );
 
 			add_action( 'admin_notices', [ $this, 'show_update_errors' ] );
 			add_action( 'network_admin_notices', [ $this, 'show_update_errors' ] );
@@ -135,6 +146,10 @@ class Plugin {
 		);
 	}
 
+	public function can_verify_signature(): bool {
+		return function_exists( 'sodium_crypto_sign_verify_detached' );
+	}
+
 	private function is_update_pilot_url( $url ) {
 		return apply_filters(
 			'update_pilot__is_update_pilot_url',
@@ -153,7 +168,7 @@ class Plugin {
 
 	public function get_plugins(): array {
 		if ( ! function_exists( 'get_plugins' ) ) {
-			return [];
+			require_once ABSPATH . '/wp-admin/includes/plugin.php';
 		}
 
 		return array_filter(
@@ -173,6 +188,22 @@ class Plugin {
 		);
 	}
 
+	public function filter_upgrader_pre_download( $pre, $package, $upgrader, $hook_extra ) {
+		$vendor_signing_key = null;
+
+		if ( $upgrader instanceof \Plugin_Upgrader && ! empty( $hook_extra['plugin'] ) ) {
+			$vendor_signing_key = $this->get_vendor_signing_key_option_for_plugin( $hook_extra['plugin'] )->get();
+		} elseif ( $upgrader instanceof \Theme_Upgrader && ! empty( $hook_extra['theme'] ) ) {
+			$vendor_signing_key = $this->get_vendor_signing_key_option_for_theme( $hook_extra['theme'] )->get();
+		}
+
+		if ( ! empty( $vendor_signing_key ) ) {
+			$this->vendor_hosts_with_signing[] = wp_parse_url( $package, PHP_URL_HOST );
+		}
+
+		return $pre;
+	}
+
 	public function register_hostnames( $updates ) {
 		foreach ( $this->get_plugins() as $plugin_data ) {
 			$plugin_update_url = $plugin_data['UpdateURI'];
@@ -189,6 +220,57 @@ class Plugin {
 		add_action( 'shutdown', [ $this, 'action_maybe_persist_update_errors' ] );
 
 		return $updates;
+	}
+
+	public function filter_disable_signature_softfail( bool $allow_softfail, string $url ) {
+		$url_host = wp_parse_url( $url, PHP_URL_HOST );
+
+		// Prevent soft-fail for hosts with configured signing keys.
+		if ( in_array( $url_host, $this->vendor_hosts_with_signing, true ) ) {
+			return false;
+		}
+
+		return $allow_softfail;
+	}
+
+	public function filter_extend_trusted_keys( array $keys ): array {
+		$keys = array_merge(
+			$keys,
+			array_values( $this->get_vendor_signing_keys_by_plugin_file() ),
+			array_values( $this->get_vendor_signing_keys_by_theme() ),
+		);
+
+		return array_unique( $keys );
+	}
+
+	public function filter_enable_signature_hosts( array $hosts ): array {
+		if ( ! empty( $this->vendor_hosts_with_signing ) ) {
+			return array_unique( array_merge( $hosts, $this->vendor_hosts_with_signing ) );
+		}
+
+		return $hosts;
+	}
+
+	private function get_vendor_signing_keys_by_plugin_file(): array {
+		$vendor_keys = [];
+
+		foreach ( array_keys( $this->get_plugins() ) as $plugin_file ) {
+			$vendor_keys[ $plugin_file ] = $this->get_vendor_signing_key_option_for_plugin( $plugin_file )->get();
+		}
+
+		// Remove empty and duplicate keys.
+		return array_unique( array_filter( $vendor_keys ) );
+	}
+
+	private function get_vendor_signing_keys_by_theme(): array {
+		$vendor_keys = [];
+
+		foreach ( array_keys( $this->get_themes() ) as $theme ) {
+			$vendor_keys[ $theme ] = $this->get_vendor_signing_key_option_for_theme( $theme )->get();
+		}
+
+		// Remove empty and duplicate keys.
+		return array_unique( array_filter( $vendor_keys ) );
 	}
 
 	/**
@@ -278,14 +360,7 @@ class Plugin {
 	public function get_plugin_information( string $plugin_file, object $args ) {
 		$plugin_data = $this->get_plugin_data( $plugin_file );
 
-		$info_url = apply_filters(
-			'update_pilot__plugin_update_url', // TODO: Should this be different from update?
-			$plugin_data['UpdateURI'],
-			$plugin_file,
-			$plugin_data
-		);
-
-		if ( empty( $info_url ) ) {
+		if ( empty( $plugin_data['UpdateURI'] ) ) {
 			return false;
 		}
 
@@ -294,7 +369,7 @@ class Plugin {
 			'request' => $args,
 		];
 
-		$info_url = add_query_arg( $payload, $info_url ); // Account for not supporting TLS.
+		$info_url = add_query_arg( $payload, $plugin_data['UpdateURI'] ); // Account for not supporting TLS.
 
 		$request = wp_remote_get(
 			$info_url,
@@ -435,14 +510,7 @@ class Plugin {
 			],
 		];
 
-		$update_url = apply_filters(
-			'update_pilot__plugin_update_url',
-			$plugin_data['UpdateURI'],
-			$plugin_file,
-			$plugin_data
-		);
-
-		$response = wp_remote_post( $update_url, $payload );
+		$response = wp_remote_post( $plugin_data['UpdateURI'], $payload );
 
 		if ( is_wp_error( $response ) ) {
 			$response->add(
@@ -476,11 +544,11 @@ class Plugin {
 		);
 	}
 
-	private function get_section_name_for_update_uri( $update_uri ) {
+	private function get_section_name_for_update_uri( $update_uri ): string {
 		return sprintf( 'updates-host-%s', wp_parse_url( $update_uri, PHP_URL_HOST ) );
 	}
 
-	private function get_package_update_settings_url( $update_uri ) {
+	private function get_package_update_settings_url( $update_uri ): string {
 		return sprintf(
 			'%s#%s',
 			$this->get_settings_url(),
@@ -500,26 +568,42 @@ class Plugin {
 		return $actions;
 	}
 
-	private function option_name( string $name ) {
+	private function option_name( string $name ): string {
 		return sprintf( '%s%s', self::OPTION_PREFIX, sanitize_key( $name ) );
 	}
 
-	private function get_update_key_option_for_plugin( string $plugin_file ) {
+	private function get_option_key_for_plugin_file( string $plugin_file ): string {
 		$replace = [
 			'/' => '--',
 			'.' => '-',
 		];
 
-		$key = str_replace( array_keys( $replace ), $replace, $plugin_file );
-
-		return new Store_Site_Option( $this->option_name( sprintf( 'update_key_plugin__%s', $key ) ) );
+		return str_replace( array_keys( $replace ), $replace, $plugin_file );
 	}
 
-	private function get_update_key_for_plugin( string $plugin_file ) {
+	private function get_update_key_option_for_plugin( string $plugin_file ): Store_Site_Option {
+		$option_name = $this->option_name( sprintf( 'update_key_plugin__%s', $this->get_option_key_for_plugin_file( $plugin_file ) ) );
+
+		return new Store_Site_Option( $option_name );
+	}
+
+	private function get_update_key_for_plugin( string $plugin_file ): ?string {
 		return apply_filters(
 			'update_pilot__plugin_update_key__' . $plugin_file,
 			$this->get_update_key_option_for_plugin( $plugin_file )->get()
 		);
+	}
+
+	private function get_vendor_signing_key_option_for_plugin( string $plugin_file ): Store_Site_Option {
+		$option_name = $this->option_name( sprintf( 'vendor_signing_key_plugin__%s', $this->get_option_key_for_plugin_file( $plugin_file ) ) );
+
+		return new Store_Site_Option( $option_name );
+	}
+
+	private function get_vendor_signing_key_option_for_theme( string $theme ): Store_Site_Option {
+		$option_name = $this->option_name( sprintf( 'vendor_signing_key_theme__%s', sanitize_key( $theme ) ) );
+
+		return new Store_Site_Option( $option_name );
 	}
 
 	public function register_settings_pages() {
@@ -542,6 +626,14 @@ class Plugin {
 				$this->get_manage_updates_cap(),
 				self::SETTINGS_SLUG,
 				[ $this, 'settings_page' ]
+			);
+		}
+
+		if ( ! $this->can_verify_signature() ) {
+			add_settings_error( // TODO: Make this work and add to site health, too.
+				self::SETTINGS_SLUG,
+				'update_pilot__signing_disabled_error',
+				__( 'The PHP Sodium extension is required to verify the authenticity of the updates.', 'update-pilot' )
 			);
 		}
 
@@ -598,11 +690,48 @@ class Plugin {
 				self::SETTINGS_SLUG
 			);
 
+			$vendor_signing_key_field = new Vendor_Signing_Key(
+				$this->get_vendor_signing_key_option_for_plugin( $plugin_file ),
+				[
+					'title' => __( 'Signing Key', 'update-pilot' ),
+					'help' => __( 'Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed.', 'update-pilot' ),
+				]
+			);
+
+			$vendor_signing_key_field->set_setting(
+				'test_vendor_signing_key_callback',
+				function ( $public_key ) use ( $plugin_file, $plugin ) {
+					add_filter(
+						'update_pilot__plugin_vendor_signing_key__' . $plugin_file,
+						fn() => $public_key,
+					);
+
+					$update = $this->get_update_for_version( $plugin_file, $plugin, [] );
+
+					if ( ! empty( $update->package ) ) {
+						// Enforce signature verification.
+						$this->vendor_hosts_with_signing[] = wp_parse_url( $update->package, PHP_URL_HOST );
+
+						$download = download_url( $update->package, 300, true ); // Rely on WP core to validate the hash.
+
+						if ( ! is_wp_error( $download ) ) {
+							unlink( $download );
+						}
+
+						return $download;
+					}
+
+					return false;
+				}
+			);
+
+			$this->add_settings_field( $vendor_signing_key_field, $section_key );
+
 			$plugin_field = new Update_Key(
 				$this->get_update_key_option_for_plugin( $plugin_file ),
 				[
-					'title' => __( 'Update Key', 'update-pilot' ),
-					'help' => __( 'Specify the update key only if required for this plugin.', 'update-pilot' ),
+					'title' => __( 'License Key', 'update-pilot' ),
+					'help' => __( 'Specify the license key only if required for this plugin.', 'update-pilot' ),
 				]
 			);
 

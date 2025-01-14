@@ -16,8 +16,6 @@ Filters:
 
 - `update_pilot__is_update_pilot_url` returns `bool` if the second `string` argument is a valid `UpdateURI` to be checked for updates.
 
-- `update_pilot__plugin_update_url` returns `string` of the `UpdateURI` endpoint.
-
 ## Integration Guide
 
 1. Setup the [Update Pilot Server](https://wpelevator.com/plugins/update-pilot-server) on your server.
