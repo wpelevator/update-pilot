@@ -5,6 +5,9 @@ on:
     tags:
       - '*'
 
+permissions:
+  contents: write # Required for publishing releases.
+
 jobs:
   release:
     name: Release ZIP
@@ -13,9 +16,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Create plugin ZIP
-        run: git archive --prefix=update-pilot/ --output="update-pilot-${{ github.ref_name }}.zip" HEAD
+        run: git archive --prefix=update-pilot/ --output="update-pilot.${{ github.ref_name }}.zip" HEAD
 
-      - name: Upload to tag
-        run: gh release create "${{ github.ref_name }}" "update-pilot-${{ github.ref_name }}.zip"
+      - name: Publish a release with plugin ZIP
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" "update-pilot.${{ github.ref_name }}.zip"
