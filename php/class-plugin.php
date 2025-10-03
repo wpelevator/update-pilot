@@ -2,6 +2,7 @@
 
 namespace WPElevator\Update_Pilot;
 
+use WP_Upgrader;
 use WPElevator\Update_Pilot\Settings\Field;
 use WPElevator\Update_Pilot\Settings\Store_Site_Option;
 use WPElevator\Update_Pilot\Settings\Update_Key;
@@ -21,7 +22,19 @@ class Plugin {
 
 	private array $update_errors = [];
 
+	/**
+	 * List of hostnames that require signature verification.
+	 *
+	 * @var array
+	 */
 	private array $vendor_hosts_with_signing = [];
+
+	/**
+	 * Update keys indexed by package URLs for auth headers when downloading.
+	 *
+	 * @var array
+	 */
+	private array $update_url_keys = [];
 
 	public function __construct( $plugin_file ) {
 		$this->plugin_file = $plugin_file;
@@ -41,6 +54,9 @@ class Plugin {
 
 			// Request package signature verification, if vendor signing key is specified.
 			add_filter( 'upgrader_pre_download', [ $this, 'filter_upgrader_pre_download' ], 10, 4 );
+
+			// Add auth headers when downloading packages from vendors.
+			add_filter( 'http_request_args', [ $this, 'filter_package_download_add_auth_headers' ], 10, 2 );
 
 			// Ensure that package signature verification is never skipped.
 			add_filter( 'wp_signature_hosts', [ $this, 'filter_enable_signature_hosts' ] );
@@ -188,13 +204,15 @@ class Plugin {
 		);
 	}
 
-	public function filter_upgrader_pre_download( $pre, $package, $upgrader, $hook_extra ) {
+	public function filter_upgrader_pre_download( $pre, string $package, WP_Upgrader $upgrader, $hook_extra ) {
 		$vendor_signing_key = null;
 
 		if ( $upgrader instanceof \Plugin_Upgrader && ! empty( $hook_extra['plugin'] ) ) {
 			$vendor_signing_key = $this->get_vendor_signing_key_option_for_plugin( $hook_extra['plugin'] )->get();
+			$this->update_url_keys[ $package ] = $this->get_update_key_for_plugin( $hook_extra['plugin'] );
 		} elseif ( $upgrader instanceof \Theme_Upgrader && ! empty( $hook_extra['theme'] ) ) {
 			$vendor_signing_key = $this->get_vendor_signing_key_option_for_theme( $hook_extra['theme'] )->get();
+			$this->update_url_keys[ $package ] = null; // TODO: Impelement this for themes too.
 		}
 
 		if ( ! empty( $vendor_signing_key ) ) {
@@ -202,6 +220,21 @@ class Plugin {
 		}
 
 		return $pre;
+	}
+
+	public function filter_package_download_add_auth_headers( array $request_args, string $url ): array {
+		if ( ! empty( $this->update_url_keys[ $url ] ) ) {
+			$auth_key = sprintf(
+				'%s:%s',
+				wp_parse_url( home_url(), PHP_URL_HOST ),
+				$this->update_url_keys[ $url ]
+			);
+
+			// TODO: Consider if another Authorization header is already present.
+			$request_args['headers']['Authorization'] = sprintf( 'Basic %s', base64_encode( $auth_key ) );
+		}
+
+		return $request_args;
 	}
 
 	public function register_hostnames( $updates ) {
