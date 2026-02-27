@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"devDependencies": {
-		"npm-run-all2": "^7.0"
+		"npm-run-all2": "^8.0"
 	},
 	"scripts": {
 		"build": "npm-run-all build:*",
