@@ -13,7 +13,7 @@ jobs:
     name: Release ZIP
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create plugin ZIP
         run: git archive --prefix=update-pilot/ --output="update-pilot.${{ github.ref_name }}.zip" HEAD
