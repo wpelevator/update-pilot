@@ -33,7 +33,7 @@ class Vendor_Signing_Key extends Field {
 							'update-pilot-vendor-public-key',
 							sprintf(
 								/* translators: %s: update test error message */
-								__( 'Failed to check for an update using the provided signing key: %s', 'update-pilot' ),
+								__( 'Failed to check for an update using the provided signing key: %s', 'wpelevator-update-pilot' ),
 								$update->get_error_message()
 							)
 						)
@@ -42,7 +42,7 @@ class Vendor_Signing_Key extends Field {
 					$this->add_error(
 						new WP_Error(
 							'update-pilot-vendor-public-key',
-							__( 'The signing key is valid!', 'update-pilot' )
+							__( 'The signing key is valid!', 'wpelevator-update-pilot' )
 						),
 						'success'
 					);
@@ -65,7 +65,7 @@ class Vendor_Signing_Key extends Field {
 		$parts[] = sprintf(
 			'<input type="submit" class="button button-secondary" name="%s[test]" value="%s" />',
 			esc_attr( $this->name() ),
-			esc_attr__( 'Verify Key', 'update-pilot' ),
+			esc_attr__( 'Verify Key', 'wpelevator-update-pilot' ),
 		);
 
 		$help = $this->help();

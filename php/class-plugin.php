@@ -131,11 +131,11 @@ class Plugin {
 			'<div class="notice notice-success">
 				<p>%s %s</p>
 			</div>',
-			__( 'Visit the Update Pilot settings to configure the updates!', 'update-pilot' ),
+			__( 'Visit the Update Pilot settings to configure the updates!', 'wpelevator-update-pilot' ),
 			sprintf(
 				'<a href="%s" class="button">%s</a>',
 				esc_url( $this->get_settings_url() ),
-				esc_html__( 'Configure Updates', 'update-pilot' )
+				esc_html__( 'Configure Updates', 'wpelevator-update-pilot' )
 			)
 		);
 
@@ -468,7 +468,7 @@ class Plugin {
 					<p><strong>%s</strong></p>
 					<ul>%s</ul>
 				</div>',
-				esc_html__( 'The following errors occured when checking for updates:', 'update-pilot' ),
+				esc_html__( 'The following errors occured when checking for updates:', 'wpelevator-update-pilot' ),
 				implode( '', $error_messages )
 			);
 		}
@@ -550,7 +550,7 @@ class Plugin {
 				'update_pilot__update_error',
 				sprintf(
 					/* translators: 1: Plugin file, 2: Error message */
-					__( 'Update for %1$s failed: %2$s' ),
+					__( 'Update for %1$s failed: %2$s', 'wpelevator-update-pilot' ),
 					$plugin_file,
 					$response->get_error_message()
 				)
@@ -594,7 +594,7 @@ class Plugin {
 			$actions['update-pilot-configure'] = sprintf(
 				'<a href="%s">%s</a>',
 				esc_url( $this->get_package_update_settings_url( $plugin_data['UpdateURI'] ) ),
-				esc_html__( 'Configure Updates', 'update-pilot' )
+				esc_html__( 'Configure Updates', 'wpelevator-update-pilot' )
 			);
 		}
 
@@ -640,8 +640,8 @@ class Plugin {
 	}
 
 	public function register_settings_pages() {
-		$menu_label = __( 'Update Pilot', 'update-pilot' );
-		$menu_page_title = __( 'Update Pilot Settings', 'update-pilot' );
+		$menu_label = __( 'Update Pilot', 'wpelevator-update-pilot' );
+		$menu_page_title = __( 'Update Pilot Settings', 'wpelevator-update-pilot' );
 
 		if ( ! is_multisite() ) {
 			add_options_page(
@@ -666,7 +666,7 @@ class Plugin {
 			add_settings_error( // TODO: Make this work and add to site health, too.
 				self::SETTINGS_SLUG,
 				'update_pilot__signing_disabled_error',
-				__( 'The PHP Sodium extension is required to verify the authenticity of the updates.', 'update-pilot' )
+				__( 'The PHP Sodium extension is required to verify the authenticity of the updates.', 'wpelevator-update-pilot' )
 			);
 		}
 
@@ -702,7 +702,7 @@ class Plugin {
 					$parts = [
 						sprintf(
 							/* translators: %s: Plugin name */
-							__( 'Configure updates for the %s plugin', 'update-pilot' ),
+							__( 'Configure updates for the %s plugin', 'wpelevator-update-pilot' ),
 							$plugin_name
 						),
 					];
@@ -710,7 +710,7 @@ class Plugin {
 					if ( isset( $author ) ) {
 						$parts[] = sprintf(
 							/* translators: %s: Plugin author name */
-							__( 'from %s', 'update-pilot' ),
+							__( 'from %s', 'wpelevator-update-pilot' ),
 							$author
 						);
 					}
@@ -726,8 +726,8 @@ class Plugin {
 			$vendor_signing_key_field = new Vendor_Signing_Key(
 				$this->get_vendor_signing_key_option_for_plugin( $plugin_file ),
 				[
-					'title' => __( 'Signing Key', 'update-pilot' ),
-					'help' => __( 'Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed.', 'update-pilot' ),
+					'title' => __( 'Signing Key', 'wpelevator-update-pilot' ),
+					'help' => __( 'Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed.', 'wpelevator-update-pilot' ),
 				]
 			);
 
@@ -763,8 +763,8 @@ class Plugin {
 			$plugin_field = new Update_Key(
 				$this->get_update_key_option_for_plugin( $plugin_file ),
 				[
-					'title' => __( 'License Key', 'update-pilot' ),
-					'help' => __( 'Specify the license key only if required for this plugin.', 'update-pilot' ),
+					'title' => __( 'License Key', 'wpelevator-update-pilot' ),
+					'help' => __( 'Specify the license key only if required for this plugin.', 'wpelevator-update-pilot' ),
 				]
 			);
 
@@ -823,7 +823,7 @@ class Plugin {
 
 		?>
 		<div class="wrap" id="update-pilot-settings">
-			<h1 class="wp-heading-inline"><?php _e( 'Update Pilot Settings', 'update-pilot' ); ?></h1>
+			<h1 class="wp-heading-inline"><?php _e( 'Update Pilot Settings', 'wpelevator-update-pilot' ); ?></h1>
 			<a href="https://wpelevator.com/plugins/update-pilot/docs" target="_blank" class="page-title-action">Documentation</a>
 			<form method="post" action="<?php echo esc_attr( $action ); ?>">
 				<?php

@@ -33,7 +33,7 @@ class Update_Key extends Field {
 							'update-pilot-test',
 							sprintf(
 								/* translators: %s: update test error message */
-								__( 'Update test failed: %s', 'update-pilot' ),
+								__( 'Update test failed: %s', 'wpelevator-update-pilot' ),
 								$update->get_error_message()
 							)
 						)
@@ -42,7 +42,7 @@ class Update_Key extends Field {
 					$this->add_error(
 						new WP_Error(
 							'update-pilot-test',
-							__( 'Update test was successful!', 'update-pilot' )
+							__( 'Update test was successful!', 'wpelevator-update-pilot' )
 						),
 						'success'
 					);
@@ -65,7 +65,7 @@ class Update_Key extends Field {
 		$parts[] = sprintf(
 			'<input type="submit" class="button button-secondary" name="%s[test]" value="%s" />',
 			esc_attr( $this->name() ),
-			esc_attr__( 'Verify Key', 'update-pilot' ),
+			esc_attr__( 'Verify Key', 'wpelevator-update-pilot' ),
 		);
 
 		$help = $this->help();
