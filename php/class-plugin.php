@@ -2,8 +2,11 @@
 
 namespace WPElevator\Update_Pilot;
 
+use RuntimeException;
+use WP_Error;
 use WP_Upgrader;
 use WPElevator\Update_Pilot\Settings\Field;
+use WPElevator\Update_Pilot_Vendor\WPElevator\Update_Client\Signed_Package;
 use WPElevator\Update_Pilot\Settings\Store_Site_Option;
 use WPElevator\Update_Pilot\Settings\Update_Key;
 use WPElevator\Update_Pilot\Settings\Vendor_Signing_Key;
@@ -23,20 +26,13 @@ class Plugin {
 	private array $update_errors = [];
 
 	/**
-	 * List of hostnames that require signature verification.
-	 *
-	 * @var array
-	 */
-	private array $vendor_hosts_with_signing = [];
-
-	/**
 	 * Update keys indexed by package URLs for auth headers when downloading.
 	 *
 	 * @var array
 	 */
 	private array $update_url_keys = [];
 
-	public function __construct( $plugin_file ) {
+	public function __construct( string $plugin_file ) {
 		$this->plugin_file = $plugin_file;
 	}
 
@@ -52,16 +48,11 @@ class Plugin {
 
 			add_filter( 'plugins_api', [ $this, 'filter_plugins_api' ], 10, 3 );
 
-			// Request package signature verification, if vendor signing key is specified.
+			// Download and verify the package ourselves, if a vendor signing key is specified.
 			add_filter( 'upgrader_pre_download', [ $this, 'filter_upgrader_pre_download' ], 10, 4 );
 
 			// Add auth headers when downloading packages from vendors.
 			add_filter( 'http_request_args', [ $this, 'filter_package_download_add_auth_headers' ], 10, 2 );
-
-			// Ensure that package signature verification is never skipped.
-			add_filter( 'wp_signature_hosts', [ $this, 'filter_enable_signature_hosts' ] );
-			add_filter( 'wp_signature_softfail', [ $this, 'filter_disable_signature_softfail' ], 10, 2 );
-			add_filter( 'wp_trusted_keys', [ $this, 'filter_extend_trusted_keys' ] );
 
 			add_action( 'admin_notices', [ $this, 'show_update_errors' ] );
 			add_action( 'network_admin_notices', [ $this, 'show_update_errors' ] );
@@ -163,6 +154,7 @@ class Plugin {
 	}
 
 	public function can_verify_signature(): bool {
+		// Not Signed_Package::can_verify() since it is not static in the vendored release yet.
 		return function_exists( 'sodium_crypto_sign_verify_detached' );
 	}
 
@@ -204,22 +196,55 @@ class Plugin {
 		);
 	}
 
+	/**
+	 * Require a valid package signature when a vendor signing key is configured
+	 * for the plugin or theme being installed.
+	 *
+	 * WP core no longer requests the signature verification when downloading the
+	 * package, so the download is performed here instead to enforce it.
+	 *
+	 * @see Signed_Package::download()
+	 *
+	 * @param bool|string|WP_Error $pre        Whether to short-circuit the download.
+	 * @param string               $package    The package URL being downloaded.
+	 * @param WP_Upgrader          $upgrader   The upgrader instance.
+	 * @param array                $hook_extra Extra hook arguments.
+	 * @return bool|string|WP_Error
+	 */
 	public function filter_upgrader_pre_download( $pre, string $package, WP_Upgrader $upgrader, $hook_extra ) {
+		if ( false !== $pre ) {
+			return $pre; // Another filter has short-circuited the download.
+		}
+
 		$vendor_signing_key = null;
 
 		if ( $upgrader instanceof \Plugin_Upgrader && ! empty( $hook_extra['plugin'] ) ) {
 			$vendor_signing_key = $this->get_vendor_signing_key_option_for_plugin( $hook_extra['plugin'] )->get();
+
+			// Registered before the download starts so the auth header filter can match the URL.
 			$this->update_url_keys[ $package ] = $this->get_update_key_for_plugin( $hook_extra['plugin'] );
 		} elseif ( $upgrader instanceof \Theme_Upgrader && ! empty( $hook_extra['theme'] ) ) {
 			$vendor_signing_key = $this->get_vendor_signing_key_option_for_theme( $hook_extra['theme'] )->get();
 			$this->update_url_keys[ $package ] = null; // TODO: Impelement this for themes too.
 		}
 
-		if ( ! empty( $vendor_signing_key ) ) {
-			$this->vendor_hosts_with_signing[] = wp_parse_url( $package, PHP_URL_HOST );
+		if ( empty( $vendor_signing_key ) ) {
+			return $pre; // No signing key configured so WP core can download the package.
 		}
 
-		return $pre;
+		if ( ! preg_match( '!^(http|https|ftp)://!i', $package ) ) {
+			return $pre; // Local package files are used as is by WP core.
+		}
+
+		if ( isset( $upgrader->skin ) ) {
+			$upgrader->skin->feedback( 'downloading_package', $package );
+		}
+
+		try {
+			return ( new Signed_Package( $vendor_signing_key ) )->download( $package );
+		} catch ( RuntimeException $e ) {
+			return new WP_Error( 'package_signature_verification_failed', $e->getMessage() );
+		}
 	}
 
 	public function filter_package_download_add_auth_headers( array $request_args, string $url ): array {
@@ -253,57 +278,6 @@ class Plugin {
 		add_action( 'shutdown', [ $this, 'action_maybe_persist_update_errors' ] );
 
 		return $updates;
-	}
-
-	public function filter_disable_signature_softfail( bool $allow_softfail, string $url ) {
-		$url_host = wp_parse_url( $url, PHP_URL_HOST );
-
-		// Prevent soft-fail for hosts with configured signing keys.
-		if ( in_array( $url_host, $this->vendor_hosts_with_signing, true ) ) {
-			return false;
-		}
-
-		return $allow_softfail;
-	}
-
-	public function filter_extend_trusted_keys( array $keys ): array {
-		$keys = array_merge(
-			$keys,
-			array_values( $this->get_vendor_signing_keys_by_plugin_file() ),
-			array_values( $this->get_vendor_signing_keys_by_theme() ),
-		);
-
-		return array_unique( $keys );
-	}
-
-	public function filter_enable_signature_hosts( array $hosts ): array {
-		if ( ! empty( $this->vendor_hosts_with_signing ) ) {
-			return array_unique( array_merge( $hosts, $this->vendor_hosts_with_signing ) );
-		}
-
-		return $hosts;
-	}
-
-	private function get_vendor_signing_keys_by_plugin_file(): array {
-		$vendor_keys = [];
-
-		foreach ( array_keys( $this->get_plugins() ) as $plugin_file ) {
-			$vendor_keys[ $plugin_file ] = $this->get_vendor_signing_key_option_for_plugin( $plugin_file )->get();
-		}
-
-		// Remove empty and duplicate keys.
-		return array_unique( array_filter( $vendor_keys ) );
-	}
-
-	private function get_vendor_signing_keys_by_theme(): array {
-		$vendor_keys = [];
-
-		foreach ( array_keys( $this->get_themes() ) as $theme ) {
-			$vendor_keys[ $theme ] = $this->get_vendor_signing_key_option_for_theme( $theme )->get();
-		}
-
-		// Remove empty and duplicate keys.
-		return array_unique( array_filter( $vendor_keys ) );
 	}
 
 	/**
@@ -734,22 +708,19 @@ class Plugin {
 			$vendor_signing_key_field->set_setting(
 				'test_vendor_signing_key_callback',
 				function ( $public_key ) use ( $plugin_file, $plugin ) {
-					add_filter(
-						'update_pilot__plugin_vendor_signing_key__' . $plugin_file,
-						fn() => $public_key,
-					);
-
 					$update = $this->get_update_for_version( $plugin_file, $plugin, [] );
 
 					if ( ! empty( $update->package ) ) {
-						// Enforce signature verification.
-						$this->vendor_hosts_with_signing[] = wp_parse_url( $update->package, PHP_URL_HOST );
+						// Exercise the very same code path that a real install goes through.
+						$this->update_url_keys[ $update->package ] = $this->get_update_key_for_plugin( $plugin_file );
 
-						$download = download_url( $update->package, 300, true ); // Rely on WP core to validate the hash.
-
-						if ( ! is_wp_error( $download ) ) {
-							unlink( $download );
+						try {
+							$download = ( new Signed_Package( $public_key ) )->download( $update->package );
+						} catch ( RuntimeException $e ) {
+							return new WP_Error( 'package_signature_verification_failed', $e->getMessage() );
 						}
+
+						unlink( $download );
 
 						return $download;
 					}

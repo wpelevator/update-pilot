@@ -1,0 +1,19 @@
+{
+	"minimum-stability": "dev",
+	"prefer-stable": true,
+	"optimize-autoloader": true,
+	"config": {
+		"autoloader-suffix": "WPElevatorUpdatePilotVendor",
+		"sort-packages": true,
+		"allow-plugins": {
+			"wpelevator/vendor-isolator": true
+		},
+		"vendor-isolator": {
+			"prefix": "WPElevator\\Update_Pilot_Vendor"
+		}
+	},
+	"require": {
+		"wpelevator/update-client": "^0.3",
+		"wpelevator/vendor-isolator": "^0.1"
+	}
+}

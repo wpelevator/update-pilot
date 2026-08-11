@@ -3,7 +3,10 @@
 	"description": "Update Pilot for WordPress",
 	"type": "wordpress-plugin",
 	"config": {
-		"autoloader-suffix": "Update_Pilot_Plugin"
+		"autoloader-suffix": "Update_Pilot_Plugin",
+		"allow-plugins": {
+			"composer/installers": true
+		}
 	},
 	"autoload": {
 		"classmap": [
@@ -17,5 +20,10 @@
 	},
 	"require": {
 		"composer/installers": "^1.0 || ^2.0"
+	},
+	"scripts": {
+		"build": "@composer install --working-dir=vendor-isolated",
+		"post-install-cmd": "@composer install --working-dir=vendor-isolated",
+		"post-update-cmd": "@composer update --working-dir=vendor-isolated"
 	}
 }

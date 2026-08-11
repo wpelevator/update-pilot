@@ -11,12 +11,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"X-Generator: WP-CLI 2.13.0-alpha\n"
+"X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpelevator-update-pilot\n"
 
 #. Plugin Name of the plugin
 #: update-pilot.php:3
-#: php/class-plugin.php:643
+#: php/class-plugin.php:617
 msgid "Update Pilot"
 msgstr ""
 
@@ -40,59 +40,59 @@ msgstr ""
 msgid "https://wpelevator.com"
 msgstr ""
 
-#: php/class-plugin.php:134
+#: php/class-plugin.php:125
 msgid "Visit the Update Pilot settings to configure the updates!"
 msgstr ""
 
-#: php/class-plugin.php:138
-#: php/class-plugin.php:597
+#: php/class-plugin.php:129
+#: php/class-plugin.php:571
 msgid "Configure Updates"
 msgstr ""
 
-#: php/class-plugin.php:471
+#: php/class-plugin.php:445
 msgid "The following errors occured when checking for updates:"
 msgstr ""
 
 #. translators: 1: Plugin file, 2: Error message
-#: php/class-plugin.php:553
+#: php/class-plugin.php:527
 #, php-format
 msgid "Update for %1$s failed: %2$s"
 msgstr ""
 
-#: php/class-plugin.php:644
-#: php/class-plugin.php:826
+#: php/class-plugin.php:618
+#: php/class-plugin.php:797
 msgid "Update Pilot Settings"
 msgstr ""
 
-#: php/class-plugin.php:669
+#: php/class-plugin.php:643
 msgid "The PHP Sodium extension is required to verify the authenticity of the updates."
 msgstr ""
 
 #. translators: %s: Plugin name
-#: php/class-plugin.php:705
+#: php/class-plugin.php:679
 #, php-format
 msgid "Configure updates for the %s plugin"
 msgstr ""
 
 #. translators: %s: Plugin author name
-#: php/class-plugin.php:713
+#: php/class-plugin.php:687
 #, php-format
 msgid "from %s"
 msgstr ""
 
-#: php/class-plugin.php:729
+#: php/class-plugin.php:703
 msgid "Signing Key"
 msgstr ""
 
-#: php/class-plugin.php:730
+#: php/class-plugin.php:704
 msgid "Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed."
 msgstr ""
 
-#: php/class-plugin.php:766
+#: php/class-plugin.php:737
 msgid "License Key"
 msgstr ""
 
-#: php/class-plugin.php:767
+#: php/class-plugin.php:738
 msgid "Specify the license key only if required for this plugin."
 msgstr ""
 
