@@ -102,7 +102,17 @@ class Plugin_Signature_Test extends \WP_UnitTestCase {
 	}
 
 	private function set_plugin_license_key( string $plugin_file, string $license_key ): void {
-		add_filter( 'update_pilot__plugin_update_key__' . $plugin_file, fn() => $license_key );
+		add_filter(
+			'update_pilot__plugins',
+			function ( array $plugins ) use ( $plugin_file, $license_key ): array {
+				$plugins[] = [
+					'plugin' => $plugin_file,
+					'license_key' => $license_key,
+				];
+
+				return $plugins;
+			}
+		);
 	}
 
 	/**
@@ -258,32 +268,12 @@ class Plugin_Signature_Test extends \WP_UnitTestCase {
 		);
 	}
 
-	public function test_signed_theme_package_is_downloaded_and_returned() {
-		$this->skip_without_sodium();
+	public function test_theme_package_is_left_to_wp_core_until_theme_updates_are_implemented() {
+		$this->set_theme_signing_key( self::THEME, self::LICENSE_KEY );
 
-		$keypair = sodium_crypto_sign_keypair();
-
-		$this->set_theme_signing_key( self::THEME, $this->public_key( $keypair ) );
-		$this->fake_package_download( $this->sign_package( sodium_crypto_sign_secretkey( $keypair ) ) );
-
-		$file = $this->download_theme_package();
-
-		$this->assertIsString( $file, 'Themes are verified the same way as plugins' );
-
-		$this->assertSame( self::PACKAGE_CONTENTS, file_get_contents( $file ) );
-
-		$this->unlink( $file );
-	}
-
-	public function test_theme_package_signed_by_another_vendor_is_rejected() {
-		$this->skip_without_sodium();
-
-		$this->set_theme_signing_key( self::THEME, $this->public_key( sodium_crypto_sign_keypair() ) );
-		$this->fake_package_download( $this->sign_package( sodium_crypto_sign_secretkey( sodium_crypto_sign_keypair() ) ) );
-
-		$this->assertWPError(
+		$this->assertFalse(
 			$this->download_theme_package(),
-			'A theme package signed by an unknown key is never installed'
+			'Theme package verification is not handled until theme updates are implemented'
 		);
 	}
 

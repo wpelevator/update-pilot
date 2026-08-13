@@ -5,6 +5,7 @@ namespace WPElevator\Update_Pilot;
 use RuntimeException;
 use WP_Error;
 use WP_Upgrader;
+use WP_Theme;
 use WPElevator\Update_Pilot\Settings\Field;
 use WPElevator\Update_Pilot_Vendor\WPElevator\Update_Client\Signed_Package;
 use WPElevator\Update_Pilot\Settings\Store_Site_Option;
@@ -23,6 +24,9 @@ class Plugin {
 
 	private string $plugin_file;
 
+	/**
+	 * @var WP_Error[]
+	 */
 	private array $update_errors = [];
 
 	/**
@@ -31,6 +35,8 @@ class Plugin {
 	 * @var array
 	 */
 	private array $update_url_keys = [];
+
+	private ?array $update_pilot_plugins = null;
 
 	public function __construct( string $plugin_file ) {
 		$this->plugin_file = $plugin_file;
@@ -47,6 +53,7 @@ class Plugin {
 			add_filter( 'site_transient_update_plugins', [ $this, 'register_hostnames' ] );
 
 			add_filter( 'plugins_api', [ $this, 'filter_plugins_api' ], 10, 3 );
+			add_filter( 'themes_api', [ $this, 'filter_themes_api' ], 10, 3 );
 
 			// Download and verify the package ourselves, if a vendor signing key is specified.
 			add_filter( 'upgrader_pre_download', [ $this, 'filter_upgrader_pre_download' ], 10, 4 );
@@ -68,10 +75,8 @@ class Plugin {
 			add_action( 'network_admin_edit_update', [ $this, 'action_update_network_settings' ] );
 		}
 
-		if ( is_admin() && $this->current_user_can_manage_updates() ) {
-			add_filter( 'plugin_action_links_' . $this->get_plugin_basename(), [ $this, 'filter_plugin_action_links' ], 10, 3 );
-			add_filter( 'network_admin_plugin_action_links_' . $this->get_plugin_basename(), [ $this, 'filter_plugin_action_links' ], 10, 3 );
-		}
+		add_filter( 'plugin_action_links_' . $this->get_plugin_basename(), [ $this, 'filter_plugin_action_links' ], 10, 3 );
+		add_filter( 'network_admin_plugin_action_links_' . $this->get_plugin_basename(), [ $this, 'filter_plugin_action_links' ], 10, 3 );
 	}
 
 	public static function uninstall() {
@@ -108,7 +113,7 @@ class Plugin {
 	}
 
 	public function action_activate_notice() {
-		if ( ! $this->current_user_can_manage_updates() ) {
+		if ( ! current_user_can( 'update_plugins' ) ) {
 			return;
 		}
 
@@ -133,40 +138,16 @@ class Plugin {
 		delete_transient( self::TRANSIENT_NAME_ACTIVATED );
 	}
 
-	private function get_manage_updates_cap() {
-		if ( is_multisite() ) {
-			return 'manage_network_options';
-		}
-
-		return 'update_plugins';
-	}
-
-	/**
-	 * If the current user can manage updates.
-	 *
-	 * @return bool
-	 */
-	private function current_user_can_manage_updates() {
-		return (bool) apply_filters(
-			'update_pilot__current_user_can_manage_updates',
-			current_user_can( $this->get_manage_updates_cap() )
-		);
-	}
-
 	public function can_verify_signature(): bool {
 		// Not Signed_Package::can_verify() since it is not static in the vendored release yet.
 		return function_exists( 'sodium_crypto_sign_verify_detached' );
 	}
 
-	private function is_update_pilot_url( $url ) {
-		return apply_filters(
-			'update_pilot__is_update_pilot_url',
-			( false !== strpos( $url, '/update-pilot/' ) ),
-			$url
-		);
+	private function is_update_pilot_url( string $url ): bool {
+		return false !== strpos( $url, '/update-pilot/' );
 	}
 
-	private function get_plugin_slug_from_file( $plugin_file ) {
+	private function get_plugin_slug_from_file( string $plugin_file ): string {
 		if ( false !== strpos( $plugin_file, '/' ) ) {
 			return dirname( $plugin_file );
 		}
@@ -179,20 +160,50 @@ class Plugin {
 			require_once ABSPATH . '/wp-admin/includes/plugin.php';
 		}
 
-		return array_filter(
-			get_plugins(),
-			fn( $plugin_data ) => $this->is_update_pilot_url( $plugin_data['UpdateURI'] )
-		);
+		return get_plugins();
 	}
 
-	public function get_themes(): array {
-		if ( ! function_exists( 'wp_get_themes' ) ) {
-			return [];
+	public function get_update_pilot_plugins(): array {
+		if ( isset( $this->update_pilot_plugins ) ) {
+			return $this->update_pilot_plugins;
 		}
 
+		$update_pilot_plugins = array_map(
+			fn( $config ): string => $config['plugin'],
+			$this->get_update_pilot_filter_plugins()
+		);
+
+		$this->update_pilot_plugins = [];
+
+		foreach ( $this->get_plugins() as $plugin_file => $plugin_data ) {
+			if ( ( ! empty( $plugin_data['UpdateURI'] ) && in_array( $plugin_file, $update_pilot_plugins, true ) ) || $this->is_update_pilot_url( $plugin_data['UpdateURI'] ) ) {
+				$this->update_pilot_plugins[ $plugin_file ] = $plugin_data;
+			}
+		}
+
+		return $this->update_pilot_plugins;
+	}
+
+	/**
+	 * @return \WP_Theme[]
+	 */
+	public function get_themes(): array {
+		if ( function_exists( 'wp_get_themes' ) ) {
+			return wp_get_themes();
+		}
+
+		return [];
+	}
+
+	public function get_update_pilot_themes(): array {
+		$update_pilot_themes = array_map(
+			fn( $config ): string => $config['theme'],
+			$this->get_update_pilot_filter_themes()
+		);
+
 		return array_filter(
-			wp_get_themes(),
-			fn( $theme ) => $this->is_update_pilot_url( $theme->get( 'UpdateURI' ) )
+			$this->get_themes(),
+			fn( WP_Theme $theme ): bool => in_array( $theme->get_stylesheet(), $update_pilot_themes, true ) || $this->is_update_pilot_url( $theme->get( 'UpdateURI' ) )
 		);
 	}
 
@@ -219,13 +230,12 @@ class Plugin {
 		$vendor_signing_key = null;
 
 		if ( $upgrader instanceof \Plugin_Upgrader && ! empty( $hook_extra['plugin'] ) ) {
-			$vendor_signing_key = $this->get_vendor_signing_key_option_for_plugin( $hook_extra['plugin'] )->get();
+			$vendor_signing_key = $this->get_signing_key_for_plugin( $hook_extra['plugin'] );
 
 			// Registered before the download starts so the auth header filter can match the URL.
 			$this->update_url_keys[ $package ] = $this->get_update_key_for_plugin( $hook_extra['plugin'] );
 		} elseif ( $upgrader instanceof \Theme_Upgrader && ! empty( $hook_extra['theme'] ) ) {
-			$vendor_signing_key = $this->get_vendor_signing_key_option_for_theme( $hook_extra['theme'] )->get();
-			$this->update_url_keys[ $package ] = null; // TODO: Impelement this for themes too.
+			// TODO: Implement this for themes.
 		}
 
 		if ( empty( $vendor_signing_key ) ) {
@@ -263,7 +273,7 @@ class Plugin {
 	}
 
 	public function register_hostnames( $updates ) {
-		foreach ( $this->get_plugins() as $plugin_data ) {
+		foreach ( $this->get_update_pilot_plugins() as $plugin_data ) {
 			$plugin_update_url = $plugin_data['UpdateURI'];
 
 			add_filter(
@@ -289,7 +299,10 @@ class Plugin {
 		set_site_transient( self::TRANSIENT_NAME_UPDATE_ERRORS, $this->update_errors, DAY_IN_SECONDS );
 	}
 
-	private function get_update_errors() {
+	/**
+	 * @return WP_Error[]
+	 */
+	private function get_update_errors(): array {
 		if ( ! empty( $this->update_errors ) ) {
 			return $this->update_errors;
 		}
@@ -297,10 +310,67 @@ class Plugin {
 		$errors = get_site_transient( self::TRANSIENT_NAME_UPDATE_ERRORS );
 
 		if ( is_array( $errors ) ) {
-			return $errors;
+			return array_filter( $errors, fn( $error ): bool => $error instanceof WP_Error );
 		}
 
 		return [];
+	}
+
+	private function get_update_pilot_filter_plugin_config( string $plugin_file ): ?array {
+		$plugins = array_filter(
+			$this->get_update_pilot_filter_plugins(),
+			fn( $config ): bool => $config['plugin'] === $plugin_file
+		);
+
+		return array_shift( $plugins );
+	}
+
+	private function get_update_pilot_filter_plugins(): array {
+		$plugins = array_map(
+			function ( $config ): ?array {
+				if ( is_array( $config ) && ! empty( $config['plugin'] ) ) {
+					// Support for the license key being a on-demand callable.
+					if ( ! empty( $config['license_key'] ) && is_callable( $config['license_key'] ) ) {
+						$config['license_key'] = (string) call_user_func( $config['license_key'] );
+					}
+
+					return [
+						'plugin' => $config['plugin'] ?? null,
+						'license_key' => ! empty( $config['license_key'] ) ? trim( (string) $config['license_key'] ) : null,
+						'signing_key' => ! empty( $config['signing_key'] ) ? trim( (string) $config['signing_key'] ) : null,
+					];
+				}
+
+				return null;
+			},
+			(array) apply_filters( 'update_pilot__plugins', [] )
+		);
+
+		return array_filter( $plugins );
+	}
+
+	private function get_update_pilot_filter_themes(): array {
+		$themes = array_map(
+			function ( $config ): ?array {
+				if ( is_array( $config ) && ! empty( $config['theme'] ) ) {
+					// Support for the license key being a on-demand callable.
+					if ( ! empty( $config['license_key'] ) && is_callable( $config['license_key'] ) ) {
+						$config['license_key'] = (string) call_user_func( $config['license_key'] );
+					}
+
+					return [
+						'theme' => $config['theme'] ?? null,
+						'license_key' => ! empty( $config['license_key'] ) ? trim( (string) $config['license_key'] ) : null,
+						'signing_key' => ! empty( $config['signing_key'] ) ? trim( (string) $config['signing_key'] ) : null,
+					];
+				}
+
+				return null;
+			},
+			(array) apply_filters( 'update_pilot__themes', [] )
+		);
+
+		return array_filter( $themes );
 	}
 
 	/**
@@ -312,22 +382,33 @@ class Plugin {
 	 */
 	public function filter_plugins_api( $response, $action, $args ) {
 		if ( empty( $response ) && 'plugin_information' === $action ) {
-			$plugin_file = $this->get_plugin_file_by_slug( $args->slug );
+			$plugin_file = $this->get_update_pilot_plugin_file_by_slug( $args->slug );
 
-			if ( $plugin_file ) { // Plugin might not be local, yet.
-				$plugin_data = $this->get_plugin_data( $plugin_file );
-
-				if ( ! empty( $plugin_data['UpdateURI'] ) && $this->is_update_pilot_url( $plugin_data['UpdateURI'] ) ) {
-					return $this->get_plugin_information( $plugin_file, $args );
-				}
+			if ( $plugin_file ) {
+				return $this->get_plugin_information( $plugin_file, $args ) ?? false;
 			}
 		}
 
 		return $response;
 	}
 
-	private function get_plugin_file_by_slug( string $slug ) {
-		foreach ( $this->get_plugins() as $plugin_file => $plugin_data ) {
+	/**
+	 * Filters the themes API response.
+	 *
+	 * @param false|object|array $result The result object or array. Default false.
+	 * @param string             $action The type of information being requested from the Theme Installation API.
+	 * @param object             $args   Theme API arguments.
+	 */
+	public function filter_themes_api( $response, $action, $args ) {
+		if ( empty( $response ) && 'theme_information' === $action ) {
+			// TODO: Implement this.
+		}
+
+		return $response;
+	}
+
+	private function get_update_pilot_plugin_file_by_slug( string $slug ): ?string {
+		foreach ( $this->get_update_pilot_plugins() as $plugin_file => $plugin_data ) {
 			if ( $this->get_plugin_slug_from_file( $plugin_file ) === $slug ) {
 				return $plugin_file;
 			}
@@ -336,7 +417,7 @@ class Plugin {
 		return null;
 	}
 
-	private function get_plugin_data( string $plugin_file ) {
+	private function get_plugin_data( string $plugin_file ): ?array {
 		$plugins = $this->get_plugins();
 
 		if ( ! empty( $plugins[ $plugin_file ] ) ) {
@@ -364,11 +445,11 @@ class Plugin {
 		return [];
 	}
 
-	public function get_plugin_information( string $plugin_file, object $args ) {
+	public function get_plugin_information( string $plugin_file, object $args ): ?object {
 		$plugin_data = $this->get_plugin_data( $plugin_file );
 
 		if ( empty( $plugin_data['UpdateURI'] ) ) {
-			return false;
+			return null;
 		}
 
 		$payload = [
@@ -382,6 +463,7 @@ class Plugin {
 			$info_url,
 			[
 				'headers' => $this->get_update_request_headers( $plugin_file ),
+				'user-agent' => 'WordPress/' . wp_get_wp_version() . '; ' . home_url( '/' ), // Report URL and WP core version for stats.
 				'timeout' => 15,
 			]
 		);
@@ -394,7 +476,7 @@ class Plugin {
 			}
 		}
 
-		return false;
+		return null;
 	}
 
 	private function is_screen_for_update_notice() {
@@ -423,7 +505,7 @@ class Plugin {
 	}
 
 	public function show_update_errors() {
-		if ( ! $this->current_user_can_manage_updates() || ! $this->is_screen_for_update_notice() ) {
+		if ( ! current_user_can( 'update_plugins' ) || ! $this->is_screen_for_update_notice() ) {
 			return;
 		}
 
@@ -468,7 +550,7 @@ class Plugin {
 		return false;
 	}
 
-	private function get_plugin_meta_file( $plugin_file ): ?string {
+	private function get_plugin_meta_file( string $plugin_file ): ?string {
 		// We can't include it for ourselves.
 		if ( false !== strpos( $this->plugin_file, $plugin_file ) ) {
 			return null;
@@ -477,7 +559,7 @@ class Plugin {
 		$meta_file = sprintf( '%s/update-pilot.php', dirname( $plugin_file ) );
 
 		$lookup_files = array_map(
-			function ( $dir ) use ( $meta_file ) {
+			function ( string $dir ) use ( $meta_file ): ?string {
 				$file = sprintf( '%s/%s', rtrim( $dir, '\\/' ), $meta_file );
 
 				return is_readable( $file ) ? $file : null;
@@ -497,12 +579,12 @@ class Plugin {
 		return null;
 	}
 
-	private function get_update_for_version( $plugin_file, $plugin_data, $locales ) {
+	private function get_update_for_version( string $plugin_file, array $plugin_data, array $locales ) {
 		// Allow inactive plugins to load Update Pilot customizations even when not running.
 		$meta_include_file = $this->get_plugin_meta_file( $plugin_file );
 
 		if ( $meta_include_file && is_readable( $meta_include_file ) ) {
-			@include_once $$meta_include_file; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, we must prevent any accidental errors.
+			@include_once $meta_include_file; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, we must prevent any accidental errors.
 		}
 
 		$plugins = [
@@ -551,11 +633,11 @@ class Plugin {
 		);
 	}
 
-	private function get_section_name_for_update_uri( $update_uri ): string {
+	private function get_section_name_for_update_uri( string $update_uri ): string {
 		return sprintf( 'updates-host-%s', wp_parse_url( $update_uri, PHP_URL_HOST ) );
 	}
 
-	private function get_package_update_settings_url( $update_uri ): string {
+	private function get_package_update_settings_url( string $update_uri ): string {
 		return sprintf(
 			'%s#%s',
 			$this->get_settings_url(),
@@ -595,10 +677,29 @@ class Plugin {
 	}
 
 	private function get_update_key_for_plugin( string $plugin_file ): ?string {
-		return apply_filters(
-			'update_pilot__plugin_update_key__' . $plugin_file,
-			$this->get_update_key_option_for_plugin( $plugin_file )->get()
-		);
+		// Attempt the plugin-level settings first.
+		$plugin_pilot_config = $this->get_update_pilot_filter_plugin_config( $plugin_file );
+
+		if ( ! empty( $plugin_pilot_config['license_key'] ) ) {
+			$update_key = trim( $plugin_pilot_config['license_key'] );
+		} else {
+			$update_key = $this->get_update_key_option_for_plugin( $plugin_file )->get();
+		}
+
+		return $update_key;
+	}
+
+	private function get_signing_key_for_plugin( string $plugin_file ): ?string {
+		// Attempt the plugin-level settings first.
+		$plugin_pilot_config = $this->get_update_pilot_filter_plugin_config( $plugin_file );
+
+		if ( ! empty( $plugin_pilot_config['signing_key'] ) ) {
+			$signing_key = trim( $plugin_pilot_config['signing_key'] );
+		} else {
+			$signing_key = $this->get_vendor_signing_key_option_for_plugin( $plugin_file )->get();
+		}
+
+		return $signing_key;
 	}
 
 	private function get_vendor_signing_key_option_for_plugin( string $plugin_file ): Store_Site_Option {
@@ -621,7 +722,7 @@ class Plugin {
 			add_options_page(
 				$menu_page_title,
 				$menu_label,
-				$this->get_manage_updates_cap(),
+				'update_plugins',
 				self::SETTINGS_SLUG,
 				[ $this, 'settings_page' ]
 			);
@@ -630,7 +731,7 @@ class Plugin {
 				'settings.php',
 				$menu_page_title,
 				$menu_label,
-				$this->get_manage_updates_cap(),
+				'update_plugins',
 				self::SETTINGS_SLUG,
 				[ $this, 'settings_page' ]
 			);
@@ -644,7 +745,7 @@ class Plugin {
 			);
 		}
 
-		foreach ( $this->get_plugins() as $plugin_file => $plugin ) {
+		foreach ( $this->get_update_pilot_plugins() as $plugin_file => $plugin ) {
 			$section_key = sprintf( 'update-pilot-plugin-%s', $plugin_file );
 
 			add_settings_section(
@@ -742,11 +843,6 @@ class Plugin {
 			$plugin_field->set_setting(
 				'test_key_callback',
 				function ( $key ) use ( $plugin_file, $plugin ) {
-					add_filter(
-						'update_pilot__plugin_update_key__' . $plugin_file,
-						fn() => $key,
-					);
-
 					return $this->get_update_for_version( $plugin_file, $plugin, [] );
 				}
 			);

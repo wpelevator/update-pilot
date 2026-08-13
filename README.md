@@ -10,11 +10,7 @@ Please note that on WordPress multisite the code using these hooks should be run
 
 Filters:
 
-- `update_pilot__plugin_update_key__${plugin_file}` returns `string` product key to be used for HTTP Basic auth when checking updates for `${plugin_file}`.
-
-- `update_pilot__current_user_can_manage_updates` returns `bool` if the current user can configure the update pilot settings and see any error notifications.
-
-- `update_pilot__is_update_pilot_url` returns `bool` if the second `string` argument is a valid `UpdateURI` to be checked for updates.
+- `update_pilot__plugins` registers plugin update configuration. Each entry accepts `plugin`, `license_key`, and `signing_key`.
 
 ## Integration Guide
 
