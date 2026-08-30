@@ -453,7 +453,7 @@ class Plugin {
 		}
 
 		$payload = [
-			'action'  => 'plugin_information',
+			'action' => 'plugin_information',
 			'request' => $args,
 		];
 
