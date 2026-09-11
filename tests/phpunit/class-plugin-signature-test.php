@@ -118,8 +118,8 @@ class Plugin_Signature_Test extends \WP_UnitTestCase {
 	/**
 	 * @return string|bool|\WP_Error
 	 */
-	private function download_plugin_package( string $plugin_file = self::PLUGIN_FILE, $pre = false ) {
-		$upgrader = new \Plugin_Upgrader( new \Automatic_Upgrader_Skin() );
+	private function download_plugin_package( string $plugin_file = self::PLUGIN_FILE, $pre = false, ?\Automatic_Upgrader_Skin $skin = null ) {
+		$upgrader = new \Plugin_Upgrader( $skin ?? new \Automatic_Upgrader_Skin() );
 		$upgrader->init();
 
 		return $this->plugin->filter_upgrader_pre_download(
@@ -165,9 +165,17 @@ class Plugin_Signature_Test extends \WP_UnitTestCase {
 		$this->set_plugin_license_key( self::PLUGIN_FILE, self::LICENSE_KEY );
 		$this->fake_package_download( $this->sign_package( sodium_crypto_sign_secretkey( $keypair ) ) );
 
-		$file = $this->download_plugin_package();
+		$skin = new \Automatic_Upgrader_Skin();
+
+		$file = $this->download_plugin_package( self::PLUGIN_FILE, false, $skin );
 
 		$this->assertIsString( $file, 'The verified package file is handed over to the upgrader' );
+
+		$this->assertContains(
+			sprintf( 'Verified the package signature with the signing key %s.', $this->public_key( $keypair ) ),
+			$skin->get_upgrade_messages(),
+			'The upgrade progress reports the verified signature'
+		);
 
 		$this->assertSame(
 			self::PACKAGE_CONTENTS,
@@ -223,9 +231,16 @@ class Plugin_Signature_Test extends \WP_UnitTestCase {
 		$this->set_plugin_signing_key( self::PLUGIN_FILE, $this->public_key( $keypair ) );
 		$this->fake_package_download( null );
 
-		$result = $this->download_plugin_package();
+		$skin = new \Automatic_Upgrader_Skin();
+
+		$result = $this->download_plugin_package( self::PLUGIN_FILE, false, $skin );
 
 		$this->assertWPError( $result, 'A package without a signature is never installed' );
+
+		$this->assertEmpty(
+			preg_grep( '/Verified the package signature/', $skin->get_upgrade_messages() ),
+			'The upgrade progress does not report a signature that was never verified'
+		);
 
 		$this->assertEmpty(
 			$result->get_error_data( 'softfail-filename' ),

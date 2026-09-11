@@ -251,10 +251,24 @@ class Plugin {
 		}
 
 		try {
-			return ( new Signed_Package( $vendor_signing_key ) )->download( $package );
+			$file = ( new Signed_Package( $vendor_signing_key ) )->download( $package );
 		} catch ( RuntimeException $e ) {
 			return new WP_Error( 'package_signature_verification_failed', $e->getMessage() );
 		}
+
+		// Reached only when the signature was verified since the download throws otherwise.
+		if ( isset( $upgrader->skin ) ) {
+			$upgrader->skin->feedback(
+				sprintf(
+					/* translators: %s: Base64 encoded public signing key. */
+					__( 'Verified the package signature with the signing key %s.', 'wpelevator-update-pilot' ),
+					'<span class="code pre">%s</span>'
+				),
+				$vendor_signing_key
+			);
+		}
+
+		return $file;
 	}
 
 	public function filter_package_download_add_auth_headers( array $request_args, string $url ): array {
