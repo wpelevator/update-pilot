@@ -2,7 +2,7 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Update Pilot 0.7.0\n"
+"Project-Id-Version: Update Pilot 0.9.0\n"
 "Report-Msgid-Bugs-To: https://github.com/wpelevator/basement\n"
 "Last-Translator: support@wpelevator.com\n"
 "Language-Team: support@wpelevator.com\n"
@@ -16,7 +16,7 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: update-pilot.php:3
-#: php/class-plugin.php:718
+#: php/class-plugin.php:751
 msgid "Update Pilot"
 msgstr ""
 
@@ -45,54 +45,60 @@ msgid "Visit the Update Pilot settings to configure the updates!"
 msgstr ""
 
 #: php/class-plugin.php:134
-#: php/class-plugin.php:653
+#: php/class-plugin.php:686
 msgid "Configure Updates"
 msgstr ""
 
-#: php/class-plugin.php:527
+#. translators: %s: Base64 encoded public signing key.
+#: php/class-plugin.php:264
+#, php-format
+msgid "Verified the package signature with the signing key %s."
+msgstr ""
+
+#: php/class-plugin.php:560
 msgid "The following errors occured when checking for updates:"
 msgstr ""
 
 #. translators: 1: Plugin file, 2: Error message
-#: php/class-plugin.php:609
+#: php/class-plugin.php:642
 #, php-format
 msgid "Update for %1$s failed: %2$s"
 msgstr ""
 
-#: php/class-plugin.php:719
-#: php/class-plugin.php:893
+#: php/class-plugin.php:752
+#: php/class-plugin.php:926
 msgid "Update Pilot Settings"
 msgstr ""
 
-#: php/class-plugin.php:744
+#: php/class-plugin.php:777
 msgid "The PHP Sodium extension is required to verify the authenticity of the updates."
 msgstr ""
 
 #. translators: %s: Plugin name
-#: php/class-plugin.php:780
+#: php/class-plugin.php:813
 #, php-format
 msgid "Configure updates for the %s plugin"
 msgstr ""
 
 #. translators: %s: Plugin author name
-#: php/class-plugin.php:788
+#: php/class-plugin.php:821
 #, php-format
 msgid "from %s"
 msgstr ""
 
-#: php/class-plugin.php:804
+#: php/class-plugin.php:837
 msgid "Signing Key"
 msgstr ""
 
-#: php/class-plugin.php:805
+#: php/class-plugin.php:838
 msgid "Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed."
 msgstr ""
 
-#: php/class-plugin.php:838
+#: php/class-plugin.php:871
 msgid "License Key"
 msgstr ""
 
-#: php/class-plugin.php:839
+#: php/class-plugin.php:872
 msgid "Specify the license key only if required for this plugin."
 msgstr ""
 
