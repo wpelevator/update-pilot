@@ -325,17 +325,36 @@ class Plugin {
 		return array_shift( $plugins );
 	}
 
+	/**
+	 * The plugin file of the plugin configuration registered via the update_pilot__plugins filter.
+	 *
+	 * Accepts the `file` key as an alias of `plugin` for the integrations that registered with it.
+	 */
+	private function get_plugin_file_from_config( array $config ): ?string {
+		if ( ! empty( $config['plugin'] ) ) {
+			return (string) $config['plugin'];
+		}
+
+		if ( ! empty( $config['file'] ) ) {
+			return (string) $config['file'];
+		}
+
+		return null;
+	}
+
 	private function get_update_pilot_filter_plugins(): array {
 		$plugins = array_map(
 			function ( $config ): ?array {
-				if ( is_array( $config ) && ! empty( $config['plugin'] ) ) {
+				$plugin_file = is_array( $config ) ? $this->get_plugin_file_from_config( $config ) : null;
+
+				if ( $plugin_file ) {
 					// Support for the license key being a on-demand callable.
 					if ( ! empty( $config['license_key'] ) && is_callable( $config['license_key'] ) ) {
 						$config['license_key'] = (string) call_user_func( $config['license_key'] );
 					}
 
 					return [
-						'plugin' => $config['plugin'] ?? null,
+						'plugin' => $plugin_file,
 						'license_key' => ! empty( $config['license_key'] ) ? trim( (string) $config['license_key'] ) : null,
 						'signing_key' => ! empty( $config['signing_key'] ) ? trim( (string) $config['signing_key'] ) : null,
 					];

@@ -268,6 +268,38 @@ class Plugin_Signature_Test extends \WP_UnitTestCase {
 		);
 	}
 
+	public function test_plugin_config_registered_with_file_key_is_used() {
+		$this->skip_without_sodium();
+
+		$keypair = sodium_crypto_sign_keypair();
+
+		add_filter(
+			'update_pilot__plugins',
+			function ( array $plugins ) use ( $keypair ): array {
+				$plugins[] = [
+					'file' => self::PLUGIN_FILE,
+					'license_key' => self::LICENSE_KEY,
+					'signing_key' => $this->public_key( $keypair ),
+				];
+
+				return $plugins;
+			}
+		);
+
+		$this->fake_package_download( null );
+
+		$this->assertWPError(
+			$this->download_plugin_package(),
+			'The signing key registered under the file key is enforced for unsigned packages'
+		);
+
+		$this->assertSame(
+			$this->get_expected_authorization_header(),
+			$this->get_authorization_header( $this->package_requests[0] ?? [] ),
+			'The license key registered under the file key is sent with the package download'
+		);
+	}
+
 	public function test_theme_package_is_left_to_wp_core_until_theme_updates_are_implemented() {
 		$this->set_theme_signing_key( self::THEME, self::LICENSE_KEY );
 

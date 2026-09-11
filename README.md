@@ -10,7 +10,7 @@ Please note that on WordPress multisite the code using these hooks should be run
 
 Filters:
 
-- `update_pilot__plugins` registers plugin update configuration. Each entry accepts `plugin`, `license_key`, and `signing_key`.
+- `update_pilot__plugins` registers plugin update configuration. Each entry accepts `plugin` (the plugin basename, also accepted as `file`), `license_key`, and `signing_key`.
 
 ## Integration Guide
 
