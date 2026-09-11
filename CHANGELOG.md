@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1 (2026-09-11)
+
+- The "Configure Updates" links in the plugin list and the activation notice point to the settings page under Settings on single sites. They used to link to the non-existent `wp-admin/settings.php`.
+
 ## 0.9.0 (2026-09-11)
 
 - The plugin update progress reports the verified package signature, along with the signing key used, right after the package download.

@@ -658,11 +658,14 @@ class Plugin {
 	}
 
 	private function get_settings_url(): string {
+		// Settings live under Settings on single sites and Network Admin > Settings on multisite.
+		$base_url = is_multisite() ? network_admin_url( 'settings.php' ) : admin_url( 'options-general.php' );
+
 		return add_query_arg(
 			[
 				'page' => self::SETTINGS_SLUG,
 			],
-			network_admin_url( 'settings.php' )
+			$base_url
 		);
 	}
 

@@ -4,7 +4,7 @@
  * Description: Get updates from third-party plugin and theme vendors.
  * Author: WP Elevator
  * Author URI: https://wpelevator.com
- * Version: 0.9.0
+ * Version: 0.9.1
  * Plugin URI: https://wpelevator.com/plugins/update-pilot
  * Update URI: https://updates.wpelevator.com/wp-json/update-pilot/v1/plugins
  * Plugin ID: did:plc:etmyqc6vq2ruw7eltvpapvjk
