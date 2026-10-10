@@ -1,0 +1,12 @@
+{
+	"name": "wpelevator/update-client",
+	"description": "Implement automatic updates for self-hosted WordPress plugins and themes",
+	"license": "GPL-2.0-or-later",
+	"type": "library",
+	"minimum-stability": "dev",
+	"autoload": {
+		"classmap": [
+			"php/"
+		]
+	}
+}

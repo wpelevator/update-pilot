@@ -1,0 +1,28 @@
+{
+  "name": "wpelevator/vendor-isolator",
+  "description": "Composer plugin to isolate project dependencies by prefixing their namespace",
+  "license": "MIT",
+  "minimum-stability": "dev",
+  "type": "composer-plugin",
+  "require": {
+    "php": ">=7.4",
+    "composer-plugin-api": "^2.0",
+    "nikic/php-parser": "^5.0"
+  },
+  "require-dev": {
+    "composer/composer": "^2.0"
+  },
+  "autoload": {
+    "classmap": [
+      "php/"
+    ]
+  },
+  "autoload-dev": {
+    "classmap": [
+      "tests/phpunit/"
+    ]
+  },
+  "extra": {
+    "class": "WPElevator\\Vendor_Isolator\\Plugin"
+  }
+}
