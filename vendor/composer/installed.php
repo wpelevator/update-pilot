@@ -3,7 +3,7 @@
         'name' => 'wpelevator/update-pilot',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '2cbd543298787e0fc254e55446aae06e99c5f3bc',
+        'reference' => '7fce8f7b09a1b8e59b1d934b033eaac1d4cc47c6',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(
@@ -24,7 +24,7 @@
         'wpelevator/update-pilot' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '2cbd543298787e0fc254e55446aae06e99c5f3bc',
+            'reference' => '7fce8f7b09a1b8e59b1d934b033eaac1d4cc47c6',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(
