@@ -1,65 +1,64 @@
 msgid ""
 msgstr ""
-"Content-Transfer-Encoding: 8bit\n"
-"Content-Type: text/plain; charset=utf-8\n"
-"Language: \n"
-"Language-Team: support@wpelevator.com\n"
-"Last-Translator: support@wpelevator.com\n"
-"MIME-Version: 1.0\n"
-"PO-Revision-Date: \n"
-"POT-Creation-Date: \n"
-"Project-Id-Version: Update Pilot 0.9.1\n"
 "Report-Msgid-Bugs-To: https://github.com/wpelevator/basement\n"
+"Last-Translator: support@wpelevator.com\n"
+"Language-Team: support@wpelevator.com\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
 "X-Domain: wpelevator-update-pilot\n"
+
+#. Plugin Name of the plugin
+#: update-pilot.php:3
+#: php/class-plugin.php:754
+msgid "Update Pilot"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: update-pilot.php:8
+msgid "https://wpelevator.com/plugins/update-pilot"
+msgstr ""
+
+#. Description of the plugin
+#: update-pilot.php:4
+msgid "Get updates from third-party plugin and theme vendors."
+msgstr ""
+
+#. Author of the plugin
+#: update-pilot.php:5
+msgid "WP Elevator"
+msgstr ""
+
+#. Author URI of the plugin
+#: update-pilot.php:6
+msgid "https://wpelevator.com"
+msgstr ""
+
+#: php/class-plugin.php:130
+msgid "Visit the Update Pilot settings to configure the updates!"
+msgstr ""
 
 #: php/class-plugin.php:134
 #: php/class-plugin.php:689
 msgid "Configure Updates"
 msgstr ""
 
-#: php/class-plugin.php:816
-#. translators: %s: Plugin name
+#. translators: %s: Base64 encoded public signing key.
+#: php/class-plugin.php:264
 #, php-format
-msgid "Configure updates for the %s plugin"
-msgstr ""
-
-#: php/settings/class-vendor-signing-key.php:36
-#. translators: %s: update test error message
-#, php-format
-msgid "Failed to check for an update using the provided signing key: %s"
-msgstr ""
-
-#: update-pilot.php:4
-#. Description of the plugin
-msgid "Get updates from third-party plugin and theme vendors."
-msgstr ""
-
-#: php/class-plugin.php:874
-msgid "License Key"
-msgstr ""
-
-#: php/class-plugin.php:841
-msgid "Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed."
-msgstr ""
-
-#: php/class-plugin.php:840
-msgid "Signing Key"
-msgstr ""
-
-#: php/class-plugin.php:875
-msgid "Specify the license key only if required for this plugin."
-msgstr ""
-
-#: php/class-plugin.php:780
-msgid "The PHP Sodium extension is required to verify the authenticity of the updates."
+msgid "Verified the package signature with the signing key %s."
 msgstr ""
 
 #: php/class-plugin.php:560
 msgid "The following errors occured when checking for updates:"
 msgstr ""
 
-#: php/settings/class-vendor-signing-key.php:45
-msgid "The signing key is valid!"
+#. translators: 1: Plugin file, 2: Error message
+#: php/class-plugin.php:642
+#, php-format
+msgid "Update for %1$s failed: %2$s"
 msgstr ""
 
 #: php/class-plugin.php:755
@@ -67,20 +66,40 @@ msgstr ""
 msgid "Update Pilot Settings"
 msgstr ""
 
-#: php/class-plugin.php:754
-#: update-pilot.php:3
-#. Plugin Name of the plugin
-msgid "Update Pilot"
+#: php/class-plugin.php:780
+msgid "The PHP Sodium extension is required to verify the authenticity of the updates."
 msgstr ""
 
-#: php/class-plugin.php:642
-#. translators: 1: Plugin file, 2: Error message
+#. translators: %s: Plugin name
+#: php/class-plugin.php:816
 #, php-format
-msgid "Update for %1$s failed: %2$s"
+msgid "Configure updates for the %s plugin"
 msgstr ""
 
-#: php/settings/class-update-key.php:36
+#. translators: %s: Plugin author name
+#: php/class-plugin.php:824
+#, php-format
+msgid "from %s"
+msgstr ""
+
+#: php/class-plugin.php:840
+msgid "Signing Key"
+msgstr ""
+
+#: php/class-plugin.php:841
+msgid "Public signing key of the vendor to validate the authenticity of the downloads. Only packages signed with a matching private key will be installed."
+msgstr ""
+
+#: php/class-plugin.php:874
+msgid "License Key"
+msgstr ""
+
+#: php/class-plugin.php:875
+msgid "Specify the license key only if required for this plugin."
+msgstr ""
+
 #. translators: %s: update test error message
+#: php/settings/class-update-key.php:36
 #, php-format
 msgid "Update test failed: %s"
 msgstr ""
@@ -89,38 +108,17 @@ msgstr ""
 msgid "Update test was successful!"
 msgstr ""
 
-#: php/class-plugin.php:264
-#. translators: %s: Base64 encoded public signing key.
-#, php-format
-msgid "Verified the package signature with the signing key %s."
-msgstr ""
-
 #: php/settings/class-update-key.php:68
 #: php/settings/class-vendor-signing-key.php:68
 msgid "Verify Key"
 msgstr ""
 
-#: php/class-plugin.php:130
-msgid "Visit the Update Pilot settings to configure the updates!"
-msgstr ""
-
-#: update-pilot.php:5
-#. Author of the plugin
-msgid "WP Elevator"
-msgstr ""
-
-#: php/class-plugin.php:824
-#. translators: %s: Plugin author name
+#. translators: %s: update test error message
+#: php/settings/class-vendor-signing-key.php:36
 #, php-format
-msgid "from %s"
+msgid "Failed to check for an update using the provided signing key: %s"
 msgstr ""
 
-#: update-pilot.php:6
-#. Author URI of the plugin
-msgid "https://wpelevator.com"
-msgstr ""
-
-#: update-pilot.php:8
-#. Plugin URI of the plugin
-msgid "https://wpelevator.com/plugins/update-pilot"
+#: php/settings/class-vendor-signing-key.php:45
+msgid "The signing key is valid!"
 msgstr ""
