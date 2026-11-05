@@ -61,7 +61,8 @@
                 "issues": "https://github.com/nikic/PHP-Parser/issues",
                 "source": "https://github.com/nikic/PHP-Parser/tree/v5.9.0"
             },
-            "time": "2026-09-13T18:51:52+00:00"
+            "time": "2026-09-13T18:51:52+00:00",
+            "published-time": "2026-09-13T18:53:16+00:00"
         },
         {
             "name": "wpelevator/update-client",
@@ -91,7 +92,8 @@
             "support": {
                 "source": "https://github.com/wpelevator/update-client/tree/0.3.0"
             },
-            "time": "2026-08-11T11:56:44+00:00"
+            "time": "2026-08-11T11:56:44+00:00",
+            "published-time": "2026-08-11T11:56:53+00:00"
         },
         {
             "name": "wpelevator/vendor-isolator",
@@ -132,7 +134,8 @@
             "support": {
                 "source": "https://github.com/wpelevator/vendor-isolator/tree/0.1.1"
             },
-            "time": "2026-09-11T09:34:01+00:00"
+            "time": "2026-09-11T09:34:01+00:00",
+            "published-time": "2026-09-11T09:34:11+00:00"
         }
     ],
     "packages-dev": [],
@@ -143,5 +146,5 @@
     "prefer-lowest": false,
     "platform": {},
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }
